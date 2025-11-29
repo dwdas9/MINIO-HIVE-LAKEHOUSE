@@ -1,6 +1,5 @@
 # MinIO + Hive Metastore + Iceberg Lakehouse
-
-A stable, production-ready lakehouse that actually persists across restarts. No credential rotation, no setup scripts to re-run, no surprises.
+This repository provides a Docker-based setup for a data lakehouse using Apache Iceberg, with MinIO for object storage and Hive Metastore as the catalog. It includes a Jupyter notebook environment with PySpark for interactive querying and data manipulation.
 
 ## Why This Setup?
 

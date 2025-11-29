@@ -4,6 +4,7 @@ services:
   spark-notebook:
     image: jupyter/pyspark-notebook:spark-3.4.1
     container_name: hive-spark-notebook
+    restart: unless-stopped
     user: root
     environment:
       GRANT_SUDO: "yes"
@@ -22,9 +23,9 @@ services:
       - "4040:4040"
     command: start-notebook.sh --NotebookApp.token='' --NotebookApp.password=''
     networks:
-      - lakehouse
+      - dasnet
 
 networks:
-  lakehouse:
+  dasnet:
     external: true
-    name: minio-hive-lakehouse_lakehouse
+    name: minio-hive-lakehouse_dasnet
