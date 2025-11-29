@@ -1,0 +1,8 @@
+# Large JAR files (exceed GitHub's 100MB limit)
+lib/aws-java-sdk-bundle-1.12.262.jar
+
+# General ignores
+*.log
+.DS_Store
+.idea/
+*.iml

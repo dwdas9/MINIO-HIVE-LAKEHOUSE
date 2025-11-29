@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  spark-notebook:
+    image: jupyter/pyspark-notebook:spark-3.4.1
+    container_name: hive-spark-notebook
+    user: root
+    environment:
+      GRANT_SUDO: "yes"
+      NB_UID: 1000
+      NB_GID: 100
+      JUPYTER_ENABLE_LAB: "yes"
+      # AWS credentials for MinIO
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      AWS_REGION: us-east-1
+    volumes:
+      - ./notebooks:/home/jovyan/work
+      - ./conf/spark-defaults.conf:/usr/local/spark/conf/spark-defaults.conf:ro
+    ports:
+      - "8888:8888"
+      - "4040:4040"
+    command: start-notebook.sh --NotebookApp.token='' --NotebookApp.password=''
+    networks:
+      - lakehouse
+
+networks:
+  lakehouse:
+    external: true
+    name: minio-hive-lakehouse_lakehouse
