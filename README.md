@@ -3,10 +3,9 @@ This repository provides a Docker-based setup for a data lakehouse using Apache 
 
 ## Why This Setup?
 
-The recommended approach for a lakehouse catalog using Iceberg is Polaris. However, if you've tried the Polaris-based setup, you know the pain—every time the container restarts, you get new credentials and have to reconfigure everything. This is not a practical approach. You need a solid setup that doesn't require changes every time something restarts. Hence, Hive is used as the catalog. This is also a standard setup with proven compatibility. Hive is not an odd component in the architecture.
+The recommended approach for a lakehouse catalog using Iceberg is Polaris. However, if you've tried the Polaris-based setup, you know the pain - every time the container restarts, you get new credentials and have to reconfigure everything. This is not a practical approach. You need a solid setup that doesn't require changes every time something restarts. Hence, Hive is used as the catalog. This is also a standard setup with proven compatibility. Hive is not an odd component in the architecture.
 
 
-![](images/20251130131955.png)
 
 **How it flows:**
 1. You write SQL in Jupyter
@@ -15,13 +14,20 @@ The recommended approach for a lakehouse catalog using Iceberg is Polaris. Howev
 4. Spark reads Iceberg metadata from MinIO to find data files
 5. Spark reads/writes Parquet files directly to MinIO
 
-## Quick Start
 
-**First time setup:**
+![](images/20251130131955.png)
+
+## First time setup
 
 ### macOS / Linux
-
 ```bash
+# Open terminal, navigate to this folder, and run:
+./setup.sh
+```
+
+Note: You may need to grant execute permissions first:
+```bash
+chmod +x setup.sh start.sh stop.sh nuke.sh
 ./setup.sh
 ```
 
@@ -75,6 +81,33 @@ docker-compose logs -f hive-metastore
 docker-compose -f spark-notebook.yml up -d
 ```
 
+## Project Structure
+
+```
+MINIO-HIVE-LAKEHOUSE/
+├── docker-compose.yml      # PostgreSQL, MinIO, Hive Metastore
+├── spark-notebook.yml      # Jupyter + Spark
+├── setup.sh               # First-time setup (macOS/Linux)
+├── setup.ps1              # First-time setup (Windows)
+├── start.sh               # Start stopped containers (macOS/Linux)
+├── start.ps1              # Start stopped containers (Windows)
+├── stop.sh                # Stop containers (macOS/Linux)
+├── stop.ps1               # Stop containers (Windows)
+├── nuke.sh                # Delete everything (macOS/Linux)
+├── nuke.ps1               # Delete everything (Windows)
+├── conf/
+│   ├── hive-site.xml      # Hive Metastore configuration
+│   ├── core-site.xml      # Hadoop S3A configuration
+│   └── spark-defaults.conf # Spark + Iceberg configuration
+├── lib/                   # Downloaded JARs (gitignored)
+│   ├── postgresql-42.6.0.jar
+│   ├── hadoop-aws-3.3.4.jar
+│   └── aws-java-sdk-bundle-1.12.262.jar
+└── notebooks/
+    └── getting_started.ipynb
+```
+
+
 ## Services
 
 | Service | URL | Purpose |
@@ -84,6 +117,8 @@ docker-compose -f spark-notebook.yml up -d
 | Spark UI | http://localhost:4040 | Monitor running jobs (active during queries) |
 | Hive Metastore | localhost:9083 | Catalog service (internal) |
 | PostgreSQL | localhost:5432 | Metadata storage (internal) |
+
+![](images/20251130161336.png)
 
 **MinIO credentials:** `minioadmin` / `minioadmin`
 
@@ -141,14 +176,6 @@ To wipe everything and start completely fresh:
 
 This removes all containers, volumes, and data. Run `./setup.sh` (or `.\setup.ps1` on Windows) afterwards to create fresh containers.
 
-## Script Reference
-
-| Script | Windows | Purpose | When to use |
-|--------|---------|---------|-------------|
-| `./setup.sh` | `.\setup.ps1` | Create containers + download JARs | First time setup only |
-| `./start.sh` | `.\start.ps1` | Start existing containers | Daily—beginning of day |
-| `./stop.sh` | `.\stop.ps1` | Stop containers (preserves them) | Daily—end of day |
-| `./nuke.sh` | `.\nuke.ps1` | Delete everything (containers + data) | When you want a fresh start |
 
 ## Why These Specific JARs?
 
@@ -247,31 +274,6 @@ docker-compose logs minio-init
 
 Should show "Bucket warehouse created successfully".
 
-## Project Structure
-
-```
-MINIO-HIVE-LAKEHOUSE/
-├── docker-compose.yml      # PostgreSQL, MinIO, Hive Metastore
-├── spark-notebook.yml      # Jupyter + Spark
-├── setup.sh               # First-time setup (macOS/Linux)
-├── setup.ps1              # First-time setup (Windows)
-├── start.sh               # Start stopped containers (macOS/Linux)
-├── start.ps1              # Start stopped containers (Windows)
-├── stop.sh                # Stop containers (macOS/Linux)
-├── stop.ps1               # Stop containers (Windows)
-├── nuke.sh                # Delete everything (macOS/Linux)
-├── nuke.ps1               # Delete everything (Windows)
-├── conf/
-│   ├── hive-site.xml      # Hive Metastore configuration
-│   ├── core-site.xml      # Hadoop S3A configuration
-│   └── spark-defaults.conf # Spark + Iceberg configuration
-├── lib/                   # Downloaded JARs (gitignored)
-│   ├── postgresql-42.6.0.jar
-│   ├── hadoop-aws-3.3.4.jar
-│   └── aws-java-sdk-bundle-1.12.262.jar
-└── notebooks/
-    └── getting_started.ipynb
-```
 
 ## What You Can Do
 
