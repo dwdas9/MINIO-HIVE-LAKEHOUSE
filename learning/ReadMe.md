@@ -18,7 +18,14 @@ These are the **Apache Iceberg** features that solve the real pain points you hi
     *   *Why it matters:* Change the partitioning scheme for *new* data without touching the *old* data.
     *   *How to try it:* Alter the table partition spec and write new data.
 
-### 2. The "Medallion" Architecture (How everyone actually does it)
+### 2. Master Dimensional Modeling (The "Kimball" Way)
+Design proper Star Schemas instead of dumping data into tables.
+
+*   **Fact Tables:** Build tables that capture events (like `fact_orders`, `fact_page_views`).
+*   **Dimension Tables:** Build tables that describe the "who, what, where" (like `dim_customers`, `dim_products`).
+*   **The Goal:** Learn why this structure makes analytical queries 100x faster and easier to write.
+
+### 3. The "Medallion" Architecture (How everyone actually does it)
 This is how 90% of real data platforms work. You can build the whole thing in Jupyter notebooks.
 
 *   **Bronze Layer (Raw):**
@@ -28,17 +35,25 @@ This is how 90% of real data platforms work. You can build the whole thing in Ju
 *   **Gold Layer (Aggregated):**
     *   Pull from Silver. Build your business-level aggregates (like "Daily Sales by Region") optimized for reporting.
 
-### 3. Advanced Data Modeling Patterns
-These are the patterns that show up in interviews and trip people up. You can actually build them here.
+### 4. Implement dbt (Data Build Tool)
+Bring software engineering practices to your data transformations.
+
+*   **Setup:** Install dbt-spark to let dbt talk to your Spark engine.
+*   **Transformations:** Write modular SQL (SELECT statements) and let dbt handle table creation and updates.
+*   **Testing:** Write tests like `unique` and `not_null` to ensure bulletproof data quality.
+*   **Documentation:** Generate a lineage graph to see exactly how data flows from Raw → Bronze → Silver → Gold.
+
+### 5. Advanced Data Modeling Patterns
+These are the patterns that show up in interviews and trip people up.
 
 *   **MERGE INTO (Upserts):**
     *   *What you're doing:* You've got a stream of updates—some new rows, some updates to existing ones.
     *   *Why it matters:* `MERGE INTO` is native in Iceberg but a nightmare in standard Parquet/Hive.
 *   **Slowly Changing Dimensions (SCD Type 2):**
     *   *What you're doing:* Track when a customer's address changes. Keep the old record active for history but mark the new one as current.
-    *   *Why it matters:* You need logic to close out old records and insert new ones.
+    *   *Why it matters:* Use dbt snapshots to automatically track dimension changes over time.
 
-### 4. Performance Engineering (That's senior-level stuff)
+### 6. Performance Engineering (That's senior-level stuff)
 Getting it to work is one thing. Getting it fast is another.
 
 *   **Compaction (Bin-packing):**
@@ -48,7 +63,7 @@ Getting it to work is one thing. Getting it fast is another.
     *   *The problem:* Queries that filter on multiple columns (like `WHERE region='US' AND date='2024-01-01'`) are slow.
     *   *The fix:* Use Z-Order clustering to organize data in files so Spark skips 90% of the data during reads.
 
-### 5. Extensions (Expanding your setup)
+### 7. Extensions (Expanding your setup)
 Want to build on this foundation? Add more tools:
 
 *   **Streaming Ingestion:** Throw in **Kafka** to feed data into Bronze in real-time.
@@ -59,5 +74,4 @@ Want to build on this foundation? Add more tools:
 1.  **Generate Data:** Write a Python script that creates fake "Orders" (JSON) and uploads them to MinIO every minute.
 2.  **Ingest (Bronze):** Build a Spark job that reads those JSONs and appends them to an Iceberg table `orders_bronze`.
 3.  **Clean (Silver):** Build a Spark job that reads *new* data from Bronze, filters out orders with negative amounts, and merges them into `orders_silver`.
-4.  **Analyze (Gold):** Create a view that calculates "Total Sales per Minute".
-
+4.  **Model (Gold):** Use dbt to build fact and dimension tables, then create a view that calculates "Total Sales per Minute".
