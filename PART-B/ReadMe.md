@@ -214,12 +214,12 @@ Follow these phases in order:
 
 ## What Makes This Real
 
-❌ **Not a tutorial project:**
+**Not a tutorial project:**
 - No pre-cleaned CSV files
 - No "assume the data is perfect"
 - No skipping the hard parts
 
-✅ **Real production scenarios:**
+**Real production scenarios:**
 - API rate limits and failures
 - Late-arriving data
 - Schema changes

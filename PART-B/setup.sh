@@ -15,7 +15,7 @@ minio_running=$(docker ps --filter "name=hive-minio" --filter "status=running" -
 hive_running=$(docker ps --filter "name=hive-metastore" --filter "status=running" --format "{{.Names}}")
 
 if [ -z "$minio_running" ] || [ -z "$hive_running" ]; then
-    echo "❌ Main lakehouse is not running!"
+    echo "ERROR: Main lakehouse is not running!"
     echo ""
     echo "Please start the main lakehouse first:"
     echo "  cd .."
@@ -24,7 +24,7 @@ if [ -z "$minio_running" ] || [ -z "$hive_running" ]; then
     exit 1
 fi
 
-echo "✓ Main lakehouse is running"
+echo "Main lakehouse is running"
 echo ""
 
 # Check if dasnet network exists
@@ -32,7 +32,7 @@ echo "Checking Docker network..."
 network_exists=$(docker network ls --filter "name=dasnet" --format "{{.Name}}")
 
 if [ -z "$network_exists" ]; then
-    echo "❌ Network 'dasnet' does not exist!"
+    echo "ERROR: Network 'dasnet' does not exist!"
     echo ""
     echo "The network should have been created by the main lakehouse."
     echo "Please run the main setup first:"
@@ -42,7 +42,7 @@ if [ -z "$network_exists" ]; then
     exit 1
 fi
 
-echo "✓ Network 'dasnet' exists"
+echo "Network 'dasnet' exists"
 echo ""
 
 # Start Kafka stack
@@ -57,15 +57,15 @@ sleep 15
 kafka_healthy=$(docker ps --filter "name=crypto-kafka" --filter "health=healthy" --format "{{.Names}}")
 
 if [ -n "$kafka_healthy" ]; then
-    echo "✓ Kafka is healthy"
+    echo "Kafka is healthy"
 else
-    echo "⚠️ Kafka might still be starting up..."
+    echo "WARNING: Kafka might still be starting up..."
     echo "Check status with: docker-compose ps"
 fi
 
 echo ""
 echo "=========================================="
-echo "✓ Setup Complete!"
+echo "Setup Complete!"
 echo "=========================================="
 echo ""
 echo "Services Available:"
