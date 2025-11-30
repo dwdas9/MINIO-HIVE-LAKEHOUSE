@@ -1,5 +1,7 @@
 # Large JAR files (exceed GitHub's 100MB limit)
 PART-A/lib/aws-java-sdk-bundle-1.12.262.jar
+PART-A/lib/hadoop-aws-3.3.4.jar
+PART-A/lib/postgresql-42.6.0.jar
 
 # General ignores
 *.log
