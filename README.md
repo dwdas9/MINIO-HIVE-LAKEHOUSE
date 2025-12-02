@@ -1,180 +1,104 @@
 # MinIO + Hive Metastore + Iceberg Lakehouse
 
-A complete data lakehouse setup using Apache Iceberg, MinIO, and Hive Metastore, organized for learning and production use.
+## Overview
 
-## Repository Structure
+Welcome to my repo. Here, I tried to create a complete, production-ready data lakehouse running locally with Docker on Mac, Linux, or Windows.
 
-This repository is organized into two main parts:
+**Key Specialties:**
+- **On-Premises**: Fully self-hosted—no cloud dependencies. Works both on Windows and MAC(Apple silicon)
+- **Open Source Stack**: Apache Iceberg, MinIO, Hive Metastore, Spark, Kafka, Airflow
+- **Scalable Architecture**: Even though the design is local on docker. The same architecture can be scalled up for real production use.
 
-###  PART-A: Core Infrastructure
-The production-ready lakehouse foundation. Start here first.
+**What You'll Learn:**
+- Building modern data lakehouse architectures
+- Managing metadata catalogs with Hive Metastore
+- Real-time streaming pipelines with Kafka and Spark
+- Data transformations with dbt and Spark SQL
+- Orchestrating workflows with Airflow
 
-- **MinIO** - S3-compatible object storage
-- **Hive Metastore** - Catalog service
-- **PostgreSQL** - Metadata database  
-- **Spark Notebook** - Interactive development environment
+**Two Core Components:**
+- **PART-A**: Foundation layer (storage, metadata, processing)
+- **PART-B**: Real-time analytics layer (streaming, transformations, orchestration)
 
-** [Go to PART-A Documentation](PART-A/README.md)**
-
-### PART-B: Real-Time Streaming Analytics
-Production-grade streaming data pipeline for cryptocurrency analytics.
-
-- Real-time crypto price ingestion via Kafka
-- Spark Structured Streaming (Bronze layer)
-- dbt transformations (Silver/Gold layers)
-- Airflow orchestration & scheduling
-
-** [Go to PART-B Documentation](PART-B/ReadMe.md)**
 
 ## Quick Start
 
 ### 1. Setup Core Infrastructure (PART-A)
 
-```bash
-cd PART-A
-./setup.sh
-```
+| OS         | Command(s)                                                                                 |
+|------------|--------------------------------------------------------------------------------------------|
+| Mac/Linux  | `cd PART-A`<br>`chmod +x setup.sh`<br>`./setup.sh`                                         |
+| Windows    | `cd PART-A`<br>`Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`<br>`./setup.ps1`|
 
 This creates the base lakehouse with MinIO, Hive, and Spark.
 
+![](images/20251202124641.png)
+
 ### 2. Access Services
 
-| Service | URL | Credentials |
-|---------|-----|-------------|
-| Jupyter Notebook | http://localhost:8888 | No password |
-| MinIO Console | http://localhost:9001 | minioadmin / minioadmin |
-| Spark UI | http://localhost:4040 | (Active during queries) |
+| Service            | URL                    | Credentials                |
+|--------------------|------------------------|----------------------------|
+| Jupyter Notebook   | http://localhost:8888  | No password                |
+| MinIO Console      | http://localhost:9001  | minioadmin / minioadmin    |
+| Spark UI           | http://localhost:4040  | (Active during queries)    |
 
 ### 3. Run Streaming Analytics (Optional)
 
-Once PART-A is running, you can start the real-time streaming pipeline:
-
-```bash
-cd PART-B
-./setup.sh
-```
+| OS         | Command(s)                                                                                 |
+|------------|--------------------------------------------------------------------------------------------|
+| Mac/Linux  | `cd PART-B`<br>`chmod +x setup.sh`<br>`./setup.sh`                                         |
+| Windows    | `cd PART-B`<br>`Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`<br>`./setup.ps1`|
 
 ## Daily Workflow
 
-### PART-A (Core Infrastructure)
-
-```bash
-cd PART-A
-
-# Start your day
-./start.sh
-
-# End of day
-./stop.sh
-
-# Complete cleanup (removes all data)
-./nuke.sh
-```
-
-### PART-B (Streaming Analytics)
-
-```bash
-cd PART-B
-
-# Start streaming pipeline
-./setup.sh
-
-# Access services
-# - Kafka UI: http://localhost:8080
-# - Airflow: http://localhost:8081
-```
+| Step                | Mac/Linux Command(s)           | Windows Command(s)           |
+|---------------------|-------------------------------|------------------------------|
+| Start PART-A        | `cd PART-A`<br>`./start.sh`   | `cd PART-A`<br>`./start.ps1` |
+| Stop PART-A         | `cd PART-A`<br>`./stop.sh`    | `cd PART-A`<br>`./stop.ps1`  |
+| Cleanup PART-A      | `cd PART-A`<br>`./nuke.sh`    | `cd PART-A`<br>`./nuke.ps1`  |
+| Start PART-B        | `cd PART-B`<br>`./setup.sh`   | `cd PART-B`<br>`./setup.ps1` |
+| Access Kafka UI     | http://localhost:8080         | http://localhost:8080        |
+| Access Airflow      | http://localhost:8081         | http://localhost:8081        |
 
 ## Architecture
 
-The architecture consists of two main components:
-1. **PART-A: Core Lakehouse Infrastructure**
-   - MinIO for object storage
-   - Hive Metastore for table cataloging
-   - PostgreSQL for metadata persistence
-   - Spark Notebook for interactive data processing
-2. **PART-B: Real-Time Streaming Analytics**
-   - Kafka for data ingestion
-   - Spark Structured Streaming for real-time data processing
-   - dbt for data transformations
-   - Airflow for orchestration and scheduling
+| Component | Description |
+|-----------|-------------|
+| PART-A    | MinIO (object storage), Hive Metastore (catalog), PostgreSQL (metadata), Spark Notebook |
+| PART-B    | Kafka (streaming), Spark Structured Streaming, dbt (transformations), Airflow (orchestration) |
 
 ![](images/20251201010050.png)
 
 ## What Persists?
 
-Both PART-A and PART-B use Docker volumes for persistence:
+| Volume         | Description                       |
+|---------------|-----------------------------------|
+| postgres_data  | Table metadata and schemas        |
+| minio_data     | Parquet/Iceberg data files        |
 
-- **postgres_data** - All table metadata and schemas
-- **minio_data** - Your actual Parquet/Iceberg data files
-
-When you stop containers with `./stop.sh`, everything is preserved. Only `./nuke.sh` removes data permanently.
+Stopping containers preserves data. Only `./nuke.sh`/`./nuke.ps1` removes data permanently.
 
 ## Network Architecture
 
-- **PART-A** creates the `dasnet` Docker network
-- **PART-B** connects to the same `dasnet` network as an external network
-- This allows PART-B services (Kafka, Airflow) to access PART-A services (MinIO, Hive)
+| Network | Role |
+|---------|------|
+| dasnet  | Created by PART-A; PART-B connects for cross-service access |
 
 ## Prerequisites
 
-- Docker Desktop (Mac/Windows) or Docker Engine (Linux)
-- 8GB+ RAM available for Docker
-- 10GB+ free disk space
+| Requirement         | Details                       |
+|--------------------|-------------------------------|
+| Docker             | Desktop (Mac/Windows) or Engine (Linux) |
+| RAM                | 8GB+ available for Docker      |
+| Disk Space         | 10GB+ free                     |
 
 ## Troubleshooting
 
-### PART-A won't start
-
-Check [PART-A/README.md](PART-A/README.md#troubleshooting) for detailed troubleshooting.
-
-Common issues:
-- Missing JAR files (run `./setup.sh` to download)
-- Ports already in use (5432, 9000, 9001, 8888)
-- Not enough memory allocated to Docker
-
-### PART-B can't connect to PART-A
-
-Make sure PART-A is running first:
-
-```bash
-cd PART-A
-docker-compose ps
-```
-
-All services should show "Up" status. If not:
-
-```bash
-cd PART-A
-./stop.sh
-./start.sh
-```
-
-Then retry PART-B:
-
-```bash
-cd PART-B
-./setup.sh
-```
-
-### Network not found error
-
-The `dasnet` network is created by PART-A. Always start PART-A before PART-B.
-
-## What's Different From Standard Setups?
-
-### Why Hive Metastore Instead of Polaris?
-
-**Polaris:** Regenerates credentials on restart, requires reconfiguration  
-**Hive Metastore:** Set it once, works forever
-
-For learning and development, Hive is more practical.
-
-### Why Separate PART-A and PART-B?
-
-**PART-A:** Core infrastructure you always need  
-**PART-B:** Real-time streaming analytics with Kafka, dbt, and Airflow
-
-You can use PART-A for batch processing and exploratory work without the streaming complexity of PART-B.
+| Issue                        | Solution/Check |
+|------------------------------|----------------|
+| PART-A won't start           | See [PART-A/README.md](PART-A/README.md#troubleshooting).<br>Common: missing JARs, ports in use (5432, 9000, 9001, 8888), not enough Docker memory |
+| PART-B can't connect to PART-A| Ensure PART-A is running (`cd PART-A`, `docker-compose ps`). If not, restart PART-A (`./stop.sh`/`./start.sh` or `./stop.ps1`/`./start.ps1`). Then retry PART-B setup. |
+| Network not found error       | Start PART-A first to create `dasnet` network |
 
 ## Contributing
 
