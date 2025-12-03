@@ -105,12 +105,37 @@ After nuking, run `./setup.sh` or `./setup.ps1` to recreate everything from scra
 
 ## Architecture
 
-| Component | Description |
-|-----------|-------------|
-| PART-A    | MinIO (object storage), Hive Metastore (catalog), PostgreSQL (metadata), Spark Notebook |
-| PART-B    | Kafka (streaming), Spark Structured Streaming, dbt (transformations), Airflow (orchestration) |
+### How Data Flows
 
-![](images/20251201010050.png)
+**PART-A (Core Lakehouse):**
+1. You write SQL queries in **Jupyter** notebook
+2. **Spark** executes the query and asks **Hive** "where is this table?"
+3. **Hive** checks **PostgreSQL** for table metadata (schema, location)
+4. **Spark** reads/writes Parquet files directly from **MinIO** (S3 storage)
+
+**PART-B (Real-Time Streaming):**
+1. **Producer** fetches live crypto prices from **CoinGecko API** every 30 seconds
+2. Prices are published as events to **Kafka** message queue
+3. **Spark Streaming** consumes from Kafka and writes to Iceberg tables (Bronze layer)
+4. **Kafka UI** lets you monitor topics and messages in real-time
+
+![](images/20251203200553.png)
+
+**What Each Service Does:**
+
+| Service | Role | What It Stores |
+|---------|------|----------------|
+| **Jupyter** | Interactive interface | Your SQL queries and notebooks |
+| **Spark** | Query engine | Nothing (stateless processing) |
+| **Hive** | Metadata catalog | Table definitions, schemas, partitions |
+| **PostgreSQL** | Database | Hive's metadata (backing store) |
+| **MinIO** | Object storage | Your actual data files (Parquet/Iceberg) |
+| **Kafka** | Message queue | Streaming events (temporary, configurable retention) |
+| **Zookeeper** | Coordinator | Kafka cluster state |
+| **Producer** | Data ingester | Nothing (fetches and forwards) |
+| **Kafka UI** | Monitoring tool | Nothing (reads from Kafka) |
+
+
 
 ## What Persists?
 
