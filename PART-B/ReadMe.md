@@ -105,49 +105,89 @@ Before writing any code, let's understand what data we're working with.
 
 ### What Data Are We Getting?
 
-The crypto producer fetches data from CoinGecko's free API:
+The crypto producer fetches data from CoinGecko's free API and wraps it with metadata for tracking.
+
+**API Call:**
 ```
-GET https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_vol=true&include_24hr_change=true
+GET https://api.coingecko.com/api/v3/simple/price
+?ids=bitcoin,ethereum,binancecoin,cardano,solana,ripple,polkadot,dogecoin,avalanche-2,chainlink
+&vs_currencies=usd
+&include_market_cap=true
+&include_24hr_vol=true
+&include_24hr_change=true
+&include_last_updated_at=true
 ```
 
-**Sample Response:**
+**Actual Message Structure in Kafka:**
 ```json
 {
-  "bitcoin": {
-    "usd": 43250.50,
-    "usd_24h_vol": 28500000000,
-    "usd_24h_change": 2.34
+  "status": "success",
+  "data": {
+    "bitcoin": {
+      "usd": 92937,
+      "usd_market_cap": 1855524642938.09,
+      "usd_24h_vol": 91517389314.45,
+      "usd_24h_change": 6.77,
+      "last_updated_at": 1764758514
+    },
+    "ethereum": {
+      "usd": 3055.99,
+      "usd_market_cap": 369131919906.30,
+      "usd_24h_vol": 30743268805.08,
+      "usd_24h_change": 8.76,
+      "last_updated_at": 1764758507
+    }
   },
-  "ethereum": {
-    "usd": 2280.75,
-    "usd_24h_vol": 15200000000,
-    "usd_24h_change": -1.12
-  }
+  "api_call_timestamp": "2025-12-03T10:42:30.109530",
+  "http_status_code": 200,
+  "source_system": "coingecko_v3",
+  "api_endpoint": "/simple/price",
+  "ingestion_timestamp": "2025-12-03T10:42:30.110290"
 }
 ```
+
+**Message Structure Explained:**
+
+| Field | Purpose |
+|-------|---------|
+| `status` | API call success/failure indicator |
+| `data` | Nested object with price data for each cryptocurrency |
+| `api_call_timestamp` | When the API was called |
+| `http_status_code` | HTTP response code (200 = success) |
+| `source_system` | Data source identifier |
+| `api_endpoint` | Which API endpoint was called |
+| `ingestion_timestamp` | When message was published to Kafka |
+
+**Per-Crypto Fields:**
+
+| Field | Description | Example |
+|-------|-------------|---------|
+| `usd` | Current price in USD | 92937 |
+| `usd_market_cap` | Total market capitalization | 1.86 trillion |
+| `usd_24h_vol` | 24-hour trading volume | 91.5 billion |
+| `usd_24h_change` | Percent change in 24 hours | 6.77% |
+| `last_updated_at` | Unix timestamp of price update | 1764758514 |
 
 ### View Real Data in Kafka
 
 1. Open Kafka UI: http://localhost:8080
 2. Click on **Topics** → `crypto.prices.raw`
 3. Click **Messages** tab
-4. You'll see JSON messages with structure:
-   ```json
-   {
-     "timestamp": "2025-12-02T10:30:15Z",
-     "source": "coingecko",
-     "data": {
-       "bitcoin": {...},
-       "ethereum": {...}
-     }
-   }
-   ```
+4. You'll see the actual JSON structure shown above
 
 **Key Observations:**
 - Messages arrive every 30 seconds
-- Each message contains multiple cryptocurrencies
-- Prices change in real-time
-- Data includes volume and 24h change
+- Each message contains **10 cryptocurrencies**
+- Includes metadata fields for tracking (`api_call_timestamp`, `ingestion_timestamp`)
+- `status` field helps identify failed API calls
+- Nested structure: Top-level metadata + `data` object with crypto prices
+- Unix timestamps need conversion to readable dates
+
+**Why This Structure?**
+- **Auditability**: Metadata tracks when/how data was collected
+- **Error handling**: `status` and `http_status_code` help debug issues
+- **Traceability**: Timestamps show pipeline latency (API call → Kafka)
+- **Completeness**: Storing the entire response preserves context
 
 ---
 
