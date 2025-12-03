@@ -64,21 +64,44 @@ This creates the base lakehouse with MinIO, Hive, and Spark.
 
 ### 3. Run Streaming Analytics (Optional)
 
+Once PART-A is running, you can add real-time crypto price streaming:
+
 | OS         | Command(s)                                                                                 |
 |------------|--------------------------------------------------------------------------------------------|
 | Mac/Linux  | `cd PART-B`<br>`chmod +x setup.sh`<br>`./setup.sh`                                         |
 | Windows    | `cd PART-B`<br>`Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`<br>`./setup.ps1`|
 
+---
+
 ## Daily Workflow
+
+After initial setup, these are the common commands you'll use to manage your lakehouse:
 
 | Step                | Mac/Linux Command(s)           | Windows Command(s)           |
 |---------------------|-------------------------------|------------------------------|
 | Start PART-A        | `cd PART-A`<br>`./start.sh`   | `cd PART-A`<br>`./start.ps1` |
 | Stop PART-A         | `cd PART-A`<br>`./stop.sh`    | `cd PART-A`<br>`./stop.ps1`  |
-| Cleanup PART-A      | `cd PART-A`<br>`./nuke.sh`    | `cd PART-A`<br>`./nuke.ps1`  |
-| Start PART-B        | `cd PART-B`<br>`./setup.sh`   | `cd PART-B`<br>`./setup.ps1` |
+| Start PART-B        | `cd PART-B`<br>`docker-compose up -d` | `cd PART-B`<br>`docker-compose up -d` |
+| Stop PART-B         | `cd PART-B`<br>`docker-compose down`  | `cd PART-B`<br>`docker-compose down`  |
+| Access Jupyter      | http://localhost:8888         | http://localhost:8888        |
+| Access MinIO        | http://localhost:9001         | http://localhost:9001        |
 | Access Kafka UI     | http://localhost:8080         | http://localhost:8080        |
-| Access Airflow      | http://localhost:8081         | http://localhost:8081        |
+
+### Complete Reset (Use with Caution)
+
+**`nuke.sh` / `nuke.ps1`** - Deletes everything and starts fresh:
+- ⚠️ Stops and removes all containers
+- ⚠️ Deletes all Docker volumes (postgres_data, minio_data)
+- ⚠️ **Permanently deletes** all your tables, data, and Iceberg metadata
+- Use only when you want to completely start over
+
+```bash
+cd PART-A
+./nuke.sh    # Mac/Linux
+./nuke.ps1   # Windows
+```
+
+After nuking, run `./setup.sh` or `./setup.ps1` to recreate everything from scratch.
 
 ## Architecture
 
@@ -91,30 +114,38 @@ This creates the base lakehouse with MinIO, Hive, and Spark.
 
 ## What Persists?
 
+Your work is safe across restarts. Docker volumes preserve everything:
+
 | Volume         | Description                       |
 |---------------|-----------------------------------|
 | postgres_data  | Table metadata and schemas        |
 | minio_data     | Parquet/Iceberg data files        |
 
-Stopping containers preserves data. Only `./nuke.sh`/`./nuke.ps1` removes data permanently.
+Stopping containers preserves all data. Only `./nuke.sh`/`./nuke.ps1` deletes everything.
 
 ### After Machine Restart
 
-All services are configured with `restart: unless-stopped` policy. This means:
-- ✅ **Containers restart automatically** after machine reboot
-- ✅ **All data persists** in Docker volumes
-- ⚠️ **Wait 30-60 seconds** for all services to become healthy
+**Good news:** All containers now auto-restart when your machine reboots. 
 
-If any service fails to start after reboot:
+All services use `restart: unless-stopped` policy, which means:
+- ✅ **Automatic startup** - Containers restart when Docker starts
+- ✅ **Correct order** - Dependencies respected (Postgres → Hive → Spark)
+- ✅ **Data intact** - All your tables and files remain untouched
+- ⏱️ **Wait 30-60 seconds** - Services need time to become healthy
+
+**Verify everything is running:**
 ```bash
-# Check container status
-docker ps -a
+docker ps
+```
 
-# Restart all services
+You should see all containers with "Up" status. If something's missing, manually restart:
+```bash
 cd PART-A
 ./start.sh    # Mac/Linux
 ./start.ps1   # Windows
 ```
+
+**Important:** Enable "Start Docker Desktop when you log in" in Docker settings to ensure Docker itself starts on boot.
 
 ## Network Architecture
 
