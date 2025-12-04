@@ -2,7 +2,7 @@
 
 **← [Back to Main Repository](../README.md) | ⚠️ Prerequisites: [Complete PART-A first](../PART-A/README.md)**
 
-This tutorial builds a **production-grade real-time analytics platform** that streams live cryptocurrency prices from public APIs into your lakehouse. You'll learn by doing—starting from data modeling and progressing to real-time streaming ingestion.
+This tutorial builds a **production-grade real-time analytics platform** that streams live cryptocurrency prices from public APIs into your lakehouse. You'll learn by doing-starting from data modeling and progressing to real-time streaming ingestion.
 
 ## What You'll Build
 
@@ -48,33 +48,33 @@ A streaming data pipeline that:
 
 ## Quick Start
 
-### Step 1: Verify PART-A is Running
+**✅ If you followed the [main README](../README.md), you already completed Steps 1-2!**
 
-Before starting PART-B, ensure your core lakehouse is operational:
+The main README covers:
+- ✅ Step 1: PART-A setup (already done)
+- ✅ Step 2: Access core services (Jupyter, MinIO)
+- ✅ Step 3: PART-B setup commands
+
+### If You Skipped the Main README
+
+**Step 1: Ensure PART-A is Running**
 
 ```bash
 docker ps --filter "name=hive-minio" --filter "name=hive-metastore"
 ```
 
-You should see both containers running. If not, start PART-A first:
-- **Mac/Linux:** `cd PART-A && ./start.sh`
-- **Windows:** `cd PART-A; ./start.ps1`
+Both containers must be running. If not, go to [PART-A README](../PART-A/README.md) first.
 
-### Step 2: Launch Kafka & Crypto Producer
+**Step 2: Launch Kafka & Crypto Producer**
 
 | OS         | Commands                                                                                  |
 |------------|-------------------------------------------------------------------------------------------|
 | Mac/Linux  | `cd PART-B`<br>`chmod +x setup.sh`<br>`./setup.sh`                                        |
 | Windows    | `cd PART-B`<br>`Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`<br>`./setup.ps1`|
 
-The setup script will:
-1. Check PART-A is running
-2. Verify the `dasnet` network exists
-3. Start Zookeeper and Kafka
-4. Build and start the crypto price producer
-5. Display service URLs
+---
 
-### Step 3: Verify Everything is Running
+### Verify Everything is Running
 
 Check all containers are healthy:
 
@@ -209,7 +209,7 @@ We'll organize data into three layers:
 
 **Table:** `bronze.crypto_ticks_raw`
 
-Stores every Kafka message as-is. This is your audit trail—never delete or modify Bronze data.
+Stores every Kafka message as-is. This is your audit trail-never delete or modify Bronze data.
 
 ```sql
 CREATE TABLE bronze.crypto_ticks_raw (
@@ -489,7 +489,7 @@ docker-compose logs -f
 
 ## Contributing
 
-Found a bug or have suggestions? This is a learning project—your feedback helps everyone. Open an issue or submit a pull request!
+Found a bug or have suggestions? This is a learning project-your feedback helps everyone. Open an issue or submit a pull request!
 
 ---
 

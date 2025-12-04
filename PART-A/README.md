@@ -20,43 +20,39 @@ The recommended approach for a lakehouse catalog using Iceberg is Polaris. Howev
 
 ![](images/20251130131955.png)
 
-## First time setup
+## Setup Instructions
 
-**Use `setup.sh` (Mac/Linux) or `setup.ps1` (Windows) for first-time installation only.**
+**✅ If you followed the [main README](../README.md), PART-A is already running!**
 
-These scripts:
-1. Download required JAR files (~50MB) to `lib/` folder
-2. Create all Docker containers
-3. Wait for services to be healthy
-4. Start Jupyter notebook
+The main README's Quick Start section covers the complete PART-A setup. You only need this section if you're working directly in PART-A without following the main README.
 
-### macOS / Linux
+### First Time Setup (Standalone)
+
+If you're setting up PART-A independently:
+
+**macOS / Linux:**
 ```bash
-# Open terminal, navigate to this folder, and run:
+cd PART-A
+chmod +x setup.sh
 ./setup.sh
 ```
 
-Note: You may need to grant execute permissions first:
-```bash
-chmod +x setup.sh start.sh stop.sh nuke.sh
-./setup.sh
-```
-
-If all works well, you will be able to open the Jupyter notebook and run Spark queries.
-
-![](images/20251130162734.png)
-
-
-### Windows (PowerShell)
-
+**Windows:**
 ```powershell
+cd PART-A
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\setup.ps1
 ```
 
-This downloads required JARs, creates all containers, and waits for everything to be healthy.
+**What setup does:**
+- Downloads 3 required JAR files (~50MB)
+- Creates all containers
+- Waits for health checks
+- Starts Jupyter notebook
 
 Open http://localhost:8888 and run `notebooks/getting_started.ipynb`.
+
+![](images/20251130162734.png)
 
 ### Manual Start (if you prefer)
 
@@ -147,7 +143,7 @@ Docker volumes store:
 - **postgres_data** - All your databases, tables, schemas, column definitions
 - **minio_data** - Your actual Parquet files and Iceberg metadata
 
-Restart Docker, restart your machine, come back a week later—your data is exactly where you left it. No setup scripts to re-run, no credentials to update, no catalogs to recreate.
+Restart Docker, restart your machine, come back a week later-your data is exactly where you left it. No setup scripts to re-run, no credentials to update, no catalogs to recreate.
 
 This is how production systems work. You set them up once and they keep running.
 
@@ -235,7 +231,7 @@ This removes all containers, volumes, and data. Run `./setup.sh` (or `.\setup.ps
 
 ## Why These Specific JARs?
 
-The `apache/hive:4.0.0` Docker image is minimal—it doesn't include drivers for PostgreSQL or S3-compatible storage. We mount three JARs:
+The `apache/hive:4.0.0` Docker image is minimal-it doesn't include drivers for PostgreSQL or S3-compatible storage. We mount three JARs:
 
 | JAR | Purpose |
 |-----|---------|
