@@ -45,20 +45,8 @@ I have split the repo into two main parts. **Start with PART-A first**, then go 
 
 ![](images/20251202124641.png)
 
-After initial setup, these are the common commands you'll use to manage your lakehouse:
 
-| Step                | Mac/Linux Command(s)           | Windows Command(s)           |
-|---------------------|-------------------------------|------------------------------|
-| Start PART-A        | `cd PART-A`<br>`./start.sh`   | `cd PART-A`<br>`./start.ps1` |
-| Stop PART-A         | `cd PART-A`<br>`./stop.sh`    | `cd PART-A`<br>`./stop.ps1`  |
-| Start PART-B        | `cd PART-B`<br>`docker-compose up -d` | `cd PART-B`<br>`docker-compose up -d` |
-| Stop PART-B         | `cd PART-B`<br>`docker-compose down`  | `cd PART-B`<br>`docker-compose down`  |
-| Access Jupyter      | http://localhost:8888         | http://localhost:8888        |
-| Access MinIO        | http://localhost:9001         | http://localhost:9001        |
-| Access Kafka UI     | http://localhost:8080         | http://localhost:8080        |
-
-
-### 2. Access Services
+### 2. Access Core Services
 
 | Service            | URL                    | Credentials                |
 |--------------------|------------------------|----------------------------|
@@ -77,7 +65,19 @@ Once PART-A is running, you can add real-time crypto price streaming:
 
 ---
 
-### Complete Reset (Use with Caution)
+### 4. List of all scripts
+
+After initial setup, these are the common commands you'll use to manage your lakehouse:
+
+| Step                | Mac/Linux Command(s)           | Windows Command(s)           |
+|---------------------|-------------------------------|------------------------------|
+| Start PART-A        | `cd PART-A`<br>`./start.sh`   | `cd PART-A`<br>`./start.ps1` |
+| Stop PART-A         | `cd PART-A`<br>`./stop.sh`    | `cd PART-A`<br>`./stop.ps1`  |
+| Start PART-B        | `cd PART-B`<br>`docker-compose up -d` | `cd PART-B`<br>`docker-compose up -d` |
+| Stop PART-B         | `cd PART-B`<br>`docker-compose down`  | `cd PART-B`<br>`docker-compose down`  |
+
+
+### 5. Complete Reset (Use with Caution)
 
 **`nuke.sh` / `nuke.ps1`** - Deletes everything and starts fresh:
 - ⚠️ Stops and removes all containers
@@ -94,6 +94,7 @@ cd PART-A
 After nuking, run `./setup.sh` or `./setup.ps1` to recreate everything from scratch.
 
 ## Architecture
+
 
 ### How Data Flows
 
