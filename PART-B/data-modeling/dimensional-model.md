@@ -1,24 +1,209 @@
-# Dimensional Model - Star Schema Design
+# Dimensional Model - Star Schema (For Later)
 
-This document explains the **why** behind our dimensional model design and provides visual ERD diagrams.
+**What This Is:** Advanced data modeling stuff. You don't need this for the tutorial. Skip this file unless you want to build proper data warehouse features.
 
-## What is Dimensional Modeling?
+## Why You'd Use Star Schema
 
-**Traditional Approach (Normalized):**
-- Optimized for OLTP (transactions)
-- Many tables with complex joins
-- Avoids data duplication
-- Slow for analytics
+**Your current approach (simple tables):**
+- Bronze, Silver, Gold tables
+- Works great for basic queries
+- Easy to understand
 
-**Dimensional Approach (Star Schema):**
-- Optimized for OLAP (analytics)
-- Few tables with simple joins
-- Some data duplication is OK
-- Fast for reporting
+**Star schema approach (enterprise):**
+- Fact tables (measurements) + Dimension tables (who/what/when/where)
+- Faster for complex analytics
+- Standard in BI tools like Tableau, Power BI
+
+**When to switch?** When you're building dashboards for other people and need blazing-fast queries.
 
 ---
 
-## Our Star Schema
+## Star Schema Design (Future State)
+
+```
+                    ┌──────────────┐
+                    │  dim_crypto  │
+                    │              │
+                    │ - symbol     │
+                    │ - name       │
+                    │ - category   │
+                    └──────┬───────┘
+                           │
+                           │ 1:N
+                           │
+            ┌──────────────▼──────────────────┐
+            │     fact_crypto_prices          │
+            │                                  │
+            │ - price_usd                      │
+            │ - volume_24h                     │
+            │ - percent_change_24h             │
+            │ - timestamp                      │
+            └──────────────┬──────────────────┘
+                           │
+                           │ N:1
+                           │
+                    ┌──────▼───────┐
+                    │   dim_time   │
+                    │              │
+                    │ - hour       │
+                    │ - day        │
+                    │ - month      │
+                    │ - is_weekend │
+                    └──────────────┘
+```
+
+**Translation:**
+- `fact_crypto_prices` = Your measurements (price, volume)
+- `dim_crypto` = Info about each coin (bitcoin, ethereum)
+- `dim_time` = Date/time attributes (hour, day, weekend flag)
+
+**Why separate tables?**
+- If Bitcoin's name changes, you update `dim_crypto` once (not millions of fact rows)
+- Time attributes (is_weekend, is_holiday) are pre-calculated
+- Joins are fast because dimensions are small
+
+---
+
+## What You'd Build (Eventually)
+
+### Fact Table: `gold.fact_crypto_prices`
+
+```sql
+CREATE TABLE gold.fact_crypto_prices (
+    price_id BIGINT,                 -- Unique ID for this row
+    crypto_id INT,                   -- Links to dim_crypto
+    time_id BIGINT,                  -- Links to dim_time
+    
+    -- The actual measurements
+    price_usd DECIMAL(18, 8),
+    volume_24h DECIMAL(20, 2),
+    percent_change_24h DECIMAL(10, 4)
+)
+USING iceberg
+PARTITIONED BY (days(time_id))
+```
+
+### Dimension Table: `gold.dim_crypto`
+
+```sql
+CREATE TABLE gold.dim_crypto (
+    crypto_id INT PRIMARY KEY,       -- Surrogate key
+    crypto_symbol STRING,            -- 'bitcoin'
+    crypto_name STRING,              -- 'Bitcoin'
+    category STRING,                 -- 'layer-1', 'defi'
+    created_date DATE
+)
+USING iceberg
+```
+
+### Dimension Table: `gold.dim_time`
+
+```sql
+CREATE TABLE gold.dim_time (
+    time_id BIGINT PRIMARY KEY,      -- Unix timestamp
+    timestamp TIMESTAMP,
+    hour INT,
+    day INT,
+    month INT,
+    year INT,
+    is_weekend BOOLEAN,
+    is_holiday BOOLEAN
+)
+USING iceberg
+```
+
+---
+
+## Sample Queries
+
+### Current Price (Without Star Schema)
+
+```sql
+-- Your current approach
+SELECT crypto_symbol, price_usd, api_timestamp
+FROM silver.crypto_prices_clean
+WHERE api_timestamp = (SELECT MAX(api_timestamp) FROM silver.crypto_prices_clean)
+```
+
+### Current Price (With Star Schema)
+
+```sql
+-- Star schema approach
+SELECT c.crypto_name, f.price_usd, t.timestamp
+FROM gold.fact_crypto_prices f
+JOIN gold.dim_crypto c ON f.crypto_id = c.crypto_id
+JOIN gold.dim_time t ON f.time_id = t.time_id
+WHERE t.timestamp = (SELECT MAX(timestamp) FROM gold.dim_time)
+```
+
+**Are they different?** Not really. Star schema shines when you have:
+- Complex filters (e.g., "weekends only, exclude holidays")
+- Many dimensions (e.g., user, location, product)
+- BI tool queries (Tableau loves star schemas)
+
+---
+
+## Slowly Changing Dimensions (SCD Type 2)
+
+**The problem:** Bitcoin is #1 by market cap today. Tomorrow, Ethereum might overtake it. How do you track history?
+
+**Bad approach (overwrite):**
+```sql
+UPDATE dim_crypto 
+SET market_cap_rank = 2 
+WHERE crypto_symbol = 'bitcoin'
+```
+
+Now you lost the fact that Bitcoin *was* #1 yesterday.
+
+**Good approach (SCD Type 2):**
+```sql
+-- Bitcoin was #1, now it's #2
+crypto_id | symbol  | rank | valid_from          | valid_to            | is_current
+----------|---------|------|---------------------|---------------------|------------
+1         | bitcoin | 1    | 2024-01-01 00:00:00 | 2024-12-04 10:30:00 | FALSE
+1         | bitcoin | 2    | 2024-12-04 10:30:00 | NULL                | TRUE
+```
+
+**How to query:**
+```sql
+-- Current state
+SELECT * FROM dim_crypto WHERE is_current = TRUE
+
+-- Historical state (Jan 1)
+SELECT * FROM dim_crypto 
+WHERE valid_from <= '2024-01-01' 
+  AND (valid_to > '2024-01-01' OR valid_to IS NULL)
+```
+
+**Is this necessary for crypto prices?** Probably not. But if you're tracking:
+- Market cap rankings
+- Crypto categories (BTC moves from "currency" to "store of value")
+- Exchange listings
+
+Then yes, SCD Type 2 is useful.
+
+---
+
+## When to Actually Build This
+
+**Don't build star schema if:**
+- You're still learning
+- Simple queries work fine
+- You don't have a BI tool yet
+
+**Do build star schema when:**
+- Queries are slow (joining Silver tables takes 10+ seconds)
+- You're connecting Tableau/Power BI
+- Business users need to slice data by many dimensions
+
+---
+
+## Bottom Line
+
+Forget this file for now. Build Bronze → Silver → Gold with simple tables first. Come back here when you need enterprise-grade analytics.
+
+The tutorial in the main README is all you need to get started.
 
 ```
                     ┌──────────────────────────┐

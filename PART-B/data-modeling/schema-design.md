@@ -1,150 +1,188 @@
-# Schema Design - Crypto Analytics Platform
+# Schema Design - Keep It Simple
 
-This document defines the complete data model for our real-time crypto analytics platform, following the **Medallion Architecture** (Bronze → Silver → Gold).
+**What This Is:** You're building a real-time crypto price tracker. This doc shows you what tables to create and why. No fluff.
 
-## Design Principles
+## The Three Layers (Medallion Architecture)
 
-1. **Separation of Concerns:** Each layer has a distinct purpose
-2. **Immutability:** Bronze never changes; transformations happen in Silver/Gold
-3. **Auditability:** Track when and how data was processed
-4. **Performance:** Partition strategically, optimize for common queries
-5. **Quality:** Data gets cleaner as it moves through layers
+Think of it like cooking:
+- **Bronze:** Raw ingredients (data exactly as you got it)
+- **Silver:** Prepped ingredients (cleaned, chopped, ready to cook)
+- **Gold:** The finished dish (ready to serve)
 
 ---
 
-## Bronze Layer - Raw Data Zone
+## Bronze Layer - Just Store Everything
 
-**Purpose:** Store data exactly as received from source systems. This is your audit trail.
+**What's the point?** Keep the raw JSON from Kafka. If something goes wrong later, you can always replay from here.
 
 ### Table: `bronze.crypto_ticks_raw`
 
-**Description:** Every API response from CoinGecko, stored as-is.
+This is what you already created in Phase 2:
 
-**Schema:**
 ```sql
 CREATE TABLE bronze.crypto_ticks_raw (
-    raw_payload STRING,              -- Complete JSON from API
-    api_call_timestamp TIMESTAMP,    -- When we called the API
-    ingestion_timestamp TIMESTAMP,   -- When we wrote to Iceberg
-    source_system STRING,             -- 'coingecko_v3'
-    api_endpoint STRING,              -- '/simple/price'
-    http_status_code INT             -- 200, 429 (rate limit), etc.
+    raw_payload STRING,              -- The complete JSON message from Kafka
+    ingestion_timestamp TIMESTAMP,   -- When you wrote it to Iceberg
+    kafka_offset BIGINT,             -- Kafka offset (for exactly-once processing)
+    kafka_partition INT              -- Which Kafka partition
 )
+USING iceberg
 PARTITIONED BY (days(ingestion_timestamp))
 ```
 
-**Why This Design:**
-- `raw_payload` as STRING preserves everything (even malformed JSON)
-- Multiple timestamps track data freshness and lag
-- `http_status_code` helps debug API issues
-- Partitioned by day for easy retention management (drop old partitions)
+**Why this design?**
+- `raw_payload` as STRING → You can store anything, even broken JSON
+- `kafka_offset` → If Spark crashes, you know where to resume
+- Partitioned by day → Easy to delete old data (just drop old partitions)
 
-**Retention:** 30 days, then archive to cold storage
-
-**Write Pattern:** Append-only from Spark Structured Streaming
+**What goes in here?** Everything. Good data, bad data, duplicates. You clean it up later in Silver.
 
 ---
 
-## Silver Layer - Cleaned Data Zone
+## Silver Layer - Make It Clean
 
-**Purpose:** Apply business rules, validate, and deduplicate. This is where data becomes usable.
+**What's the point?** Parse the JSON, validate it, remove duplicates. This is where data becomes useful.
 
 ### Table: `silver.crypto_prices_clean`
 
-**Description:** Validated, typed, deduplicated cryptocurrency prices.
+This is also from Phase 2:
 
-**Schema:**
 ```sql
 CREATE TABLE silver.crypto_prices_clean (
     crypto_symbol STRING,             -- 'bitcoin', 'ethereum'
-    price_usd DECIMAL(18, 8),        -- Price in USD (8 decimals for precision)
+    price_usd DECIMAL(18, 8),        -- Price with 8 decimal places
     volume_24h DECIMAL(20, 2),       -- 24-hour trading volume
-    market_cap DECIMAL(20, 2),       -- Total market capitalization
-    percent_change_1h DECIMAL(10, 4), -- % change in last hour
-    percent_change_24h DECIMAL(10, 4),-- % change in last 24 hours
-    last_updated TIMESTAMP,           -- Timestamp from API
-    processing_timestamp TIMESTAMP,   -- When we processed this
-    source_record_id STRING,          -- Reference to Bronze table
-    data_quality_score INT            -- 0-100, based on validation rules
+    percent_change_24h DECIMAL(10, 4),-- Percent change
+    api_timestamp TIMESTAMP,          -- When CoinGecko recorded this price
+    processing_timestamp TIMESTAMP    -- When you processed it
 )
-PARTITIONED BY (days(last_updated))
+USING iceberg
+PARTITIONED BY (days(api_timestamp))
 ```
 
-**Transformation Logic:**
+**What's happening here?**
+1. Parse the JSON from `raw_payload`
+2. Split one message (10 cryptos) into 10 rows
+3. Remove duplicates (keep latest price per minute)
+4. Validate: price > 0, timestamp makes sense
+
+**Simple transformation:**
 ```python
-# Deduplication: Keep latest per symbol per minute
+# Read Bronze
+bronze_df = spark.table("bronze.crypto_ticks_raw")
+
+# Parse JSON and explode (1 message → 10 rows)
+from pyspark.sql.functions import from_json, explode, col
+
+silver_df = bronze_df \
+    .select(from_json(col("raw_payload"), schema).alias("data")) \
+    .select(explode("data").alias("crypto_symbol", "price_data")) \
+    .select(
+        col("crypto_symbol"),
+        col("price_data.usd").alias("price_usd"),
+        col("price_data.usd_24h_vol").alias("volume_24h"),
+        col("price_data.usd_24h_change").alias("percent_change_24h"),
+        # ... timestamps
+    ) \
+    .filter(col("price_usd") > 0)  # Basic validation
+
+# Write to Silver
+silver_df.write.format("iceberg").mode("append").save("silver.crypto_prices_clean")
+```
+
+---
+
+## Gold Layer - Make It Fast
+
+**What's the point?** Dashboards and analysts shouldn't scan millions of rows. Pre-aggregate the data.
+
+### Table: `gold.crypto_hourly_ohlc`
+
+**OHLC = Open, High, Low, Close** (standard format for price charts)
+
+```sql
+CREATE TABLE gold.crypto_hourly_ohlc (
+    crypto_symbol STRING,
+    hour_start TIMESTAMP,            -- Start of the hour (e.g., 2024-12-04 14:00:00)
+    
+    -- Price stats for this hour
+    open_price DECIMAL(18, 8),       -- First price in the hour
+    high_price DECIMAL(18, 8),       -- Highest price
+    low_price DECIMAL(18, 8),        -- Lowest price
+    close_price DECIMAL(18, 8),      -- Last price
+    avg_price DECIMAL(18, 8),        -- Average
+    
+    -- Volume
+    total_volume DECIMAL(20, 2),     -- Sum of volumes
+    tick_count INT                   -- How many data points in this hour
+)
+USING iceberg
+PARTITIONED BY (days(hour_start))
+```
+
+**How to populate:**
+```sql
+INSERT INTO gold.crypto_hourly_ohlc
 SELECT 
     crypto_symbol,
-    LAST(price_usd) as price_usd,
-    LAST(volume_24h) as volume_24h,
-    ...
-FROM parsed_bronze
-GROUP BY crypto_symbol, date_trunc('minute', last_updated)
+    date_trunc('hour', api_timestamp) as hour_start,
+    first(price_usd) as open_price,      -- First price
+    max(price_usd) as high_price,        -- Max
+    min(price_usd) as low_price,         -- Min
+    last(price_usd) as close_price,      -- Last price
+    avg(price_usd) as avg_price,
+    sum(volume_24h) as total_volume,
+    count(*) as tick_count
+FROM silver.crypto_prices_clean
+WHERE api_timestamp >= '2024-12-04 00:00:00'  -- Only process new data
+GROUP BY crypto_symbol, date_trunc('hour', api_timestamp)
 ```
 
-**Data Quality Rules:**
-1. `price_usd` must be > 0
-2. `last_updated` must be within 5 minutes of `processing_timestamp`
-3. `crypto_symbol` must be in allowed list
-4. No nulls in key fields
-
-**Write Pattern:** dbt incremental model (processes only new Bronze records)
+**Why hourly?**
+- Real-time: Query `silver.crypto_prices_clean` (every 30 seconds)
+- Historical charts: Query `gold.crypto_hourly_ohlc` (much faster)
 
 ---
 
-## Gold Layer - Analytics Zone
+## What You Actually Need Right Now
 
-**Purpose:** Dimensional model optimized for analytics. This is what BI tools query.
+For the tutorial, focus on **Bronze and Silver only**. Gold is for later when you have enough data.
 
-### Star Schema Design
-
-```
-        ┌──────────────┐
-        │  dim_crypto  │
-        └───────┬──────┘
-                │
-         ┌──────▼───────────────────┐
-         │  fact_crypto_ticks       │
-         └──────┬───────────────────┘
-                │
-        ┌───────▼──────┐
-        │   dim_time   │
-        └──────────────┘
-```
+**Your immediate todo:**
+1. ✅ Bronze table (done in Phase 2)
+2. ✅ Silver table (done in Phase 2)
+3. Phase 3: Stream Kafka → Bronze
+4. Phase 4: Transform Bronze → Silver (batch job)
+5. Later: Aggregate Silver → Gold (when you have days of data)
 
 ---
 
-### Fact Table: `gold.fact_crypto_ticks`
+## Data Flow Summary
 
-**Description:** Grain = One price update per cryptocurrency.
-
-**Schema:**
-```sql
-CREATE TABLE gold.fact_crypto_ticks (
-    tick_id BIGINT,                  -- Surrogate key
-    crypto_id INT,                   -- FK to dim_crypto
-    time_id BIGINT,                  -- FK to dim_time
-    
-    -- Measures (Numeric Facts)
-    price_usd DECIMAL(18, 8),
-    volume_24h DECIMAL(20, 2),
-    market_cap DECIMAL(20, 2),
-    percent_change_1h DECIMAL(10, 4),
-    percent_change_24h DECIMAL(10, 4),
-    
-    -- Metadata
-    data_quality_score INT,
-    last_updated TIMESTAMP
-)
-PARTITIONED BY (days(last_updated))
+```
+CoinGecko API (every 30s)
+    ↓
+Kafka Topic: crypto.prices.raw
+    ↓
+Bronze: Raw JSON (append-only, never delete)
+    ↓
+Silver: Parsed, validated (deduplicated)
+    ↓
+Gold: Hourly aggregates (for fast dashboards)
 ```
 
-**Indexing Strategy:**
-- Z-Order by: `crypto_id`, `last_updated` (optimizes queries like "Bitcoin prices in last hour")
+**How long to keep data?**
+- Bronze: 30 days (audit trail)
+- Silver: Forever (it's clean and useful)
+- Gold: Forever (it's tiny - only hourly summaries)
 
 ---
 
-### Fact Table: `gold.fact_crypto_hourly`
+## Next Steps
+
+Go back to the main README and continue Phase 3 (streaming from Kafka to Bronze).
+
+You don't need Gold tables yet. Build them when you're ready to create dashboards.
 
 **Description:** Grain = One row per cryptocurrency per hour (OHLC format).
 

@@ -187,7 +187,7 @@ Go to http://localhost:8888 and open the existing `getting_started.ipynb` notebo
 Run this in a new cell:
 
 ```python
-# Create Bronze database
+# Create Bronze database (schema and database are synonymous in Hive/Spark)
 spark.sql("CREATE DATABASE IF NOT EXISTS bronze")
 
 # Create table for raw Kafka messages
@@ -204,6 +204,8 @@ PARTITIONED BY (days(ingestion_timestamp))
 
 spark.sql("SHOW TABLES IN bronze").show()
 ```
+
+> **Note:** In Hive/Spark, `DATABASE` and `SCHEMA` are interchangeable terms - both create a namespace to organize tables. The commands `CREATE DATABASE bronze` and `CREATE SCHEMA bronze` do exactly the same thing.
 
 **Step 3: Create Silver Database and Table**
 
