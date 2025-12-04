@@ -22,7 +22,7 @@ The recommended approach for a lakehouse catalog using Iceberg is Polaris. Howev
 
 ## Setup Instructions
 
-**✅ If you followed the [main README](../README.md), PART-A is already running!**
+**If you followed the [main README](../README.md), PART-A is already running!**
 
 The main README's Quick Start section covers the complete PART-A setup. You only need this section if you're working directly in PART-A without following the main README.
 
@@ -50,7 +50,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 - Waits for health checks
 - Starts Jupyter notebook
 
-Open http://localhost:8888 and run `notebooks/getting_started.ipynb`.
+**Note:** Notebooks have been moved to [PART-C](../PART-C/README.md) for better project organization. Jupyter will still be accessible at http://localhost:8888 to run project notebooks.
 
 ![](images/20251130162734.png)
 
@@ -92,32 +92,6 @@ docker-compose logs -f hive-metastore
 
 # Start Jupyter (in a new terminal)
 docker-compose -f spark-notebook.yml up -d
-```
-
-## Project Structure
-
-```
-MINIO-HIVE-LAKEHOUSE/
-├── docker-compose.yml      # PostgreSQL, MinIO, Hive Metastore
-├── spark-notebook.yml      # Jupyter + Spark
-├── setup.sh               # First-time setup (macOS/Linux)
-├── setup.ps1              # First-time setup (Windows)
-├── start.sh               # Start stopped containers (macOS/Linux)
-├── start.ps1              # Start stopped containers (Windows)
-├── stop.sh                # Stop containers (macOS/Linux)
-├── stop.ps1               # Stop containers (Windows)
-├── nuke.sh                # Delete everything (macOS/Linux)
-├── nuke.ps1               # Delete everything (Windows)
-├── conf/
-│   ├── hive-site.xml      # Hive Metastore configuration
-│   ├── core-site.xml      # Hadoop S3A configuration
-│   └── spark-defaults.conf # Spark + Iceberg configuration
-├── lib/                   # Downloaded JARs (gitignored)
-│   ├── postgresql-42.6.0.jar
-│   ├── hadoop-aws-3.3.4.jar
-│   └── aws-java-sdk-bundle-1.12.262.jar
-└── notebooks/
-    └── getting_started.ipynb
 ```
 
 
@@ -162,10 +136,10 @@ docker ps --filter "name=hive"
 ```
 
 You should see:
-- ✅ `hive-postgres` - Running
-- ✅ `hive-minio` - Running (healthy)
-- ✅ `hive-metastore` - Running
-- ✅ `hive-spark-notebook` - Running
+-  `hive-postgres` - Running
+-  `hive-minio` - Running (healthy)
+-  `hive-metastore` - Running
+-  `hive-spark-notebook` - Running
 
 If any service is missing, use the start scripts:
 ```bash
@@ -337,4 +311,12 @@ Once running, you have a full Iceberg lakehouse with:
 - **Partition evolution** - Change partitioning without rewriting data
 - **Hidden partitioning** - Write `WHERE date = '2024-01-01'`, not `WHERE year=2024 AND month=01 AND day=01`
 
-Open the `getting_started.ipynb` notebook to see examples of all these features.
+**Ready to build projects?** Check out [PART-C: Projects](../PART-C/README.md) for hands-on data engineering applications using this infrastructure.
+
+---
+
+## Next Steps
+
+1. ✅ **PART-A is running** - Infrastructure ready
+2. 📖 **[Set up PART-B](../PART-B/ReadMe.md)** - Add streaming capabilities
+3. 🚀 **[Explore PART-C](../PART-C/README.md)** - Build data engineering projects

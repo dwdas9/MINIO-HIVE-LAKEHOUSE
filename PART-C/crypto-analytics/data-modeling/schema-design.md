@@ -149,8 +149,8 @@ GROUP BY crypto_symbol, date_trunc('hour', api_timestamp)
 For the tutorial, focus on **Bronze and Silver only**. Gold is for later when you have enough data.
 
 **Your immediate todo:**
-1. ✅ Bronze table (done in Phase 2)
-2. ✅ Silver table (done in Phase 2)
+1.  Bronze table (done in Phase 2)
+2.  Silver table (done in Phase 2)
 3. Phase 3: Stream Kafka → Bronze
 4. Phase 4: Transform Bronze → Silver (batch job)
 5. Later: Aggregate Silver → Gold (when you have days of data)

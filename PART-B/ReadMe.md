@@ -1,17 +1,19 @@
-# PART-B: Real-Time Crypto Analytics
+# PART-B: Streaming Infrastructure
 
 **← [Back to Main Repository](../README.md) | ⚠️ Prerequisites: [Complete PART-A first](../PART-A/README.md)**
 
-This tutorial builds a **production-grade real-time analytics platform** that streams live cryptocurrency prices from public APIs into your lakehouse. You'll learn by doing-starting from data modeling and progressing to real-time streaming ingestion.
+This is the **streaming layer** of the lakehouse. It provides Kafka infrastructure for real-time data ingestion, along with a crypto price producer as a demonstration of streaming data pipelines.
 
-## What You'll Build
+## What You'll Get
 
-A streaming data pipeline that:
-- Fetches live crypto prices from CoinGecko API every 30 seconds
-- Streams data through Kafka into your lakehouse
-- Stores raw data in Iceberg tables on MinIO
-- Processes millions of records with Spark Structured Streaming
-- Applies medallion architecture (Bronze/Silver/Gold layers)
+Streaming infrastructure including:
+- Kafka cluster for message streaming
+- Zookeeper for Kafka coordination
+- Kafka UI for monitoring topics and messages
+- Crypto price producer (demonstration)
+- Network connectivity to PART-A infrastructure
+
+**For the complete crypto analytics project**, see [PART-C: Projects](../PART-C/README.md).
 
 ## Architecture Overview
 
@@ -23,12 +25,12 @@ A streaming data pipeline that:
 
 ## Quick Start
 
-**✅ If you followed the [main README](../README.md), everything is already running!**
+** If you followed the [main README](../README.md), everything is already running!**
 
 The main README Quick Start guide already:
-- ✅ Started PART-A (MinIO, Hive, Spark)
-- ✅ Started PART-B (Kafka, Producer)
-- ✅ Configured all services
+-  Started PART-A (MinIO, Hive, Spark)
+-  Started PART-B (Kafka, Producer)
+-  Configured all services
 
 **Skip to [Verify Everything is Running](#verify-everything-is-running) below.**
 
@@ -80,26 +82,53 @@ Open Kafka UI and look for the topic `crypto.prices.raw`. You should see message
 
 ---
 
-## Tutorial: Phase 1 - Understanding the Data
+## What's Included
 
-Before writing any code, let's understand what data we're working with.
+### Services
 
-### What Data Are We Getting?
+| Service | Purpose | Port |
+|---------|---------|------|
+| **Zookeeper** | Kafka coordination | 2181 |
+| **Kafka** | Message streaming | 9092 (internal), 9093 (external) |
+| **Kafka UI** | Web interface for monitoring | 8080 |
+| **Crypto Producer** | Example data generator | - |
 
-The crypto producer fetches data from CoinGecko's free API and wraps it with metadata for tracking.
+### Demonstration: Crypto Price Streaming
 
-**API Call:**
-```
-GET https://api.coingecko.com/api/v3/simple/price
-?ids=bitcoin,ethereum,binancecoin,cardano,solana,ripple,polkadot,dogecoin,avalanche-2,chainlink
-&vs_currencies=usd
-&include_market_cap=true
-&include_24hr_vol=true
-&include_24hr_change=true
-&include_last_updated_at=true
-```
+PART-B includes a cryptocurrency price producer that demonstrates real-time data streaming:
 
-**Actual Message Structure in Kafka:**
+**What it does:**
+- Fetches live crypto prices from CoinGecko API every 30 seconds
+- Publishes to Kafka topic `crypto.prices.raw`
+- Includes 10 cryptocurrencies (Bitcoin, Ethereum, etc.)
+- Wraps data with metadata for tracking
+
+**View the data:**
+1. Open Kafka UI: http://localhost:8080
+2. Navigate to Topics → `crypto.prices.raw`
+3. View live messages arriving every 30 seconds
+
+**Producer code:** [`producers/crypto_producer.py`](producers/crypto_producer.py)
+
+---
+
+## Using This Infrastructure
+
+PART-B provides the streaming layer for your projects. The crypto producer is a working example you can:
+
+- **Study** - Learn how to build producers
+- **Modify** - Change API endpoints or frequency
+- **Replace** - Build your own producers for different data sources
+
+**Ready to build a complete project?**  
+📖 **[Go to PART-C: Crypto Analytics Project](../PART-C/README.md)** to see how to consume this streaming data, transform it through Bronze/Silver/Gold layers, and build analytics.
+
+---
+
+## Data Structure Example
+
+The crypto producer sends JSON messages in this format:
+
 ```json
 {
   "status": "success",
@@ -111,91 +140,20 @@ GET https://api.coingecko.com/api/v3/simple/price
       "usd_24h_change": 6.77,
       "last_updated_at": 1764758514
     },
-    "ethereum": {
-      "usd": 3055.99,
-      "usd_market_cap": 369131919906.30,
-      "usd_24h_vol": 30743268805.08,
-      "usd_24h_change": 8.76,
-      "last_updated_at": 1764758507
-    }
+    "ethereum": { ... }
   },
   "api_call_timestamp": "2025-12-03T10:42:30.109530",
   "http_status_code": 200,
   "source_system": "coingecko_v3",
-  "api_endpoint": "/simple/price",
   "ingestion_timestamp": "2025-12-03T10:42:30.110290"
 }
 ```
 
-**Message Structure Explained:**
-
-| Field | Purpose |
-|-------|---------|
-| `status` | API call success/failure indicator |
-| `data` | Nested object with price data for each cryptocurrency |
-| `api_call_timestamp` | When the API was called |
-| `http_status_code` | HTTP response code (200 = success) |
-| `source_system` | Data source identifier |
-| `api_endpoint` | Which API endpoint was called |
-| `ingestion_timestamp` | When message was published to Kafka |
-
-**Per-Crypto Fields:**
-
-| Field | Description | Example |
-|-------|-------------|---------|
-| `usd` | Current price in USD | 92937 |
-| `usd_market_cap` | Total market capitalization | 1.86 trillion |
-| `usd_24h_vol` | 24-hour trading volume | 91.5 billion |
-| `usd_24h_change` | Percent change in 24 hours | 6.77% |
-| `last_updated_at` | Unix timestamp of price update | 1764758514 |
-
-### View Real Data in Kafka
-
-1. Open Kafka UI: http://localhost:8080
-2. Click on **Topics** → `crypto.prices.raw`
-3. Click **Messages** tab
-4. You'll see the actual JSON structure shown above
-
-**Key Observations:**
-- Messages arrive every 30 seconds
-- Each message contains **10 cryptocurrencies**
-- Includes metadata fields for tracking (`api_call_timestamp`, `ingestion_timestamp`)
-- `status` field helps identify failed API calls
-- Nested structure: Top-level metadata + `data` object with crypto prices
-- Unix timestamps need conversion to readable dates
-
-**Why This Structure?**
-- **Auditability**: Metadata tracks when/how data was collected
-- **Error handling**: `status` and `http_status_code` help debug issues
-- **Traceability**: Timestamps show pipeline latency (API call → Kafka)
-- **Completeness**: Storing the entire response preserves context
+**For detailed schema design and data modeling,** see [PART-C: Crypto Analytics](../PART-C/crypto-analytics/data-modeling/).
 
 ---
 
-## Tutorial: Phase 2 - Data Modeling
-
-Real projects start with design, not code. Let's plan our tables before streaming data.
-
-### Step-by-Step: Create Your Database Schema
-
-**Step 1: Open Jupyter Notebook**
-
-Go to http://localhost:8888 and open the existing `getting_started.ipynb` notebook (from PART-A).
-
-**Step 2: Create Bronze Database and Table**
-
-Run this in a new cell:
-
-```python
-# Create Bronze database (schema and database are synonymous in Hive/Spark)
-spark.sql("CREATE DATABASE IF NOT EXISTS bronze")
-
-# Create table for raw Kafka messages
-spark.sql("""
-CREATE TABLE IF NOT EXISTS bronze.crypto_ticks_raw (
-    raw_payload STRING,
-    ingestion_timestamp TIMESTAMP,
-    kafka_offset BIGINT,
+## Managing PART-B
     kafka_partition INT
 )
 USING iceberg
@@ -240,7 +198,7 @@ spark.sql("DESCRIBE bronze.crypto_ticks_raw").show()
 spark.sql("DESCRIBE silver.crypto_prices_clean").show()
 ```
 
-**✅ Done!** Your database schema is ready. Now you can proceed to Phase 3 for streaming ingestion.
+** Done!** Your database schema is ready. Now you can proceed to Phase 3 for streaming ingestion.
 
 ---
 
@@ -400,14 +358,14 @@ LIMIT 5
 
 ## What's Working vs. What's Planned
 
-### ✅ Currently Implemented
+###  Currently Implemented
 
 | Component | Status | What Works |
 |-----------|--------|------------|
-| Kafka Stack | ✅ Complete | Zookeeper, Kafka, Kafka UI running |
-| Crypto Producer | ✅ Complete | Fetches live prices every 30s from CoinGecko |
-| Data Modeling Docs | ✅ Complete | Bronze/Silver/Gold schemas documented |
-| Bronze Ingestion | ✅ Tutorial Ready | Step-by-step guide above |
+| Kafka Stack |  Complete | Zookeeper, Kafka, Kafka UI running |
+| Crypto Producer |  Complete | Fetches live prices every 30s from CoinGecko |
+| Data Modeling Docs |  Complete | Bronze/Silver/Gold schemas documented |
+| Bronze Ingestion |  Tutorial Ready | Step-by-step guide above |
 
 ### 🚧 Planned for Future Updates
 
@@ -502,19 +460,39 @@ docker-compose logs -f
 
 ---
 
-## Contributing
+## Customizing the Producer
 
-Found a bug or have suggestions? This is a learning project-your feedback helps everyone. Open an issue or submit a pull request!
+Want to stream different data? The crypto producer is a template:
+
+**File:** [`producers/crypto_producer.py`](producers/crypto_producer.py)
+
+**Modify it to:**
+- Change API endpoints
+- Adjust frequency (currently 30 seconds)
+- Add new data sources
+- Change Kafka topics
+
+**After changes:**
+```bash
+docker-compose restart crypto-producer
+```
+
+---
+
+## Next Steps
+
+1. ✅ **PART-B is running** - Streaming infrastructure ready
+2. 📖 **Monitor Kafka UI** - http://localhost:8080 to see live data
+3. 🚀 **Build projects** - [Go to PART-C](../PART-C/README.md) to learn data engineering with this streaming infrastructure
 
 ---
 
 ## What Makes This Real
 
-Unlike typical tutorials, this project uses:
+The crypto producer demonstrates production patterns:
 - ✅ **Real APIs** - Live data from CoinGecko (not CSV files)
-- ✅ **Production Patterns** - Medallion architecture, proper partitioning
-- ✅ **Real Challenges** - API rate limits, late data, duplicates
-- ✅ **Industry Tools** - Kafka, Spark, Iceberg, not toy examples
+- ✅ **Error handling** - Status tracking and retry logic
+- ✅ **Metadata** - Timestamps for tracking and debugging
+- ✅ **Industry Tools** - Kafka, not toy examples
 
-**You're learning production skills, not just following scripts.**
-
+**See it in action in [PART-C: Crypto Analytics Project](../PART-C/crypto-analytics/)**, which shows how to consume this streaming data and build a complete medallion architecture pipeline.

@@ -18,12 +18,13 @@ Welcome to my repo. Here, I tried to create a complete, production-ready data la
 
 ## Start Here: Choose Your Path
 
-I have split the repo into two main parts. **Start with PART-A first**, then go to PART-B.
+I have split the repo into three main parts. **Start with PART-A first**, then PART-B, and finally explore PART-C.
 
 | Part | Purpose | Documentation |
 |------|---------|---------------|
 | **PART-A** | Foundation layer: Storage, metadata catalog, processing engine | 📖 [Go to PART-A →](PART-A/README.md) |
-| **PART-B** | Real-time analytics: Streaming, transformations, orchestration | 📖 [Go to PART-B →](PART-B/ReadMe.md) |
+| **PART-B** | Streaming layer: Real-time data ingestion with Kafka | 📖 [Go to PART-B →](PART-B/ReadMe.md) |
+| **PART-C** | Projects: Hands-on data engineering applications | 📖 [Go to PART-C →](PART-C/README.md) |
 
 
 ## Quick Start
@@ -63,9 +64,21 @@ Once PART-A is running, you can add real-time crypto price streaming:
 | Mac/Linux  | `cd PART-B`<br>`chmod +x setup.sh`<br>`./setup.sh`                                         |
 | Windows    | `cd PART-B`<br>`Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`<br>`./setup.ps1`|
 
+### 4. Work on Data Projects (PART-C)
+
+Once both PART-A and PART-B are running, explore the **crypto analytics project**:
+
+📖 **[Go to PART-C: Projects →](PART-C/README.md)**
+
+**Quick access to Jupyter:**
+```bash
+# Open: http://localhost:8888
+# Navigate to: work/getting_started.ipynb (moved to PART-C)
+```
+
 ---
 
-### 4. List of all scripts
+### 5. List of all scripts
 
 After initial setup, these are the common commands you'll use to manage your lakehouse:
 
@@ -77,7 +90,7 @@ After initial setup, these are the common commands you'll use to manage your lak
 | Stop PART-B         | `cd PART-B`<br>`docker-compose down`  | `cd PART-B`<br>`docker-compose down`  |
 
 
-### 5. Complete Reset (Use with Caution)
+### 6. Complete Reset (Use with Caution)
 
 **`nuke.sh` / `nuke.ps1`** - Deletes everything and starts fresh:
 - ⚠️ Stops and removes all containers
