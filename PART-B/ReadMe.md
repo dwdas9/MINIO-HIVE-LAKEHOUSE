@@ -15,32 +15,7 @@ A streaming data pipeline that:
 
 ## Architecture Overview
 
-```
-┌─────────────────┐
-│  CoinGecko API  │  Live crypto prices (free tier)
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Crypto Producer │  Python service polling API
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│      Kafka      │  Streaming message queue
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Spark Streaming │  Real-time data processing
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Iceberg Tables  │  ACID transactions on MinIO
-│   (MinIO)       │  Bronze → Silver → Gold
-└─────────────────┘
-```
+![](images/20251204182616.png)
 
 **Network:** All services run on the `dasnet` Docker network created by PART-A. This lets them access MinIO and Hive Metastore from the core infrastructure.
 
@@ -48,14 +23,20 @@ A streaming data pipeline that:
 
 ## Quick Start
 
-**✅ If you followed the [main README](../README.md), you already completed Steps 1-2!**
+**✅ If you followed the [main README](../README.md), everything is already running!**
 
-The main README covers:
-- ✅ Step 1: PART-A setup (already done)
-- ✅ Step 2: Access core services (Jupyter, MinIO)
-- ✅ Step 3: PART-B setup commands
+The main README Quick Start guide already:
+- ✅ Started PART-A (MinIO, Hive, Spark)
+- ✅ Started PART-B (Kafka, Producer)
+- ✅ Configured all services
 
-### If You Skipped the Main README
+**Skip to [Verify Everything is Running](#verify-everything-is-running) below.**
+
+---
+
+### If You Started Directly in PART-B (Standalone Setup)
+
+Only use this if you skipped the main README and want to set up PART-B independently.
 
 **Step 1: Ensure PART-A is Running**
 
@@ -74,7 +55,7 @@ Both containers must be running. If not, go to [PART-A README](../PART-A/README.
 
 ---
 
-### Verify Everything is Running
+## Verify Everything is Running
 
 Check all containers are healthy:
 
@@ -193,49 +174,48 @@ GET https://api.coingecko.com/api/v3/simple/price
 
 ## Tutorial: Phase 2 - Data Modeling
 
-Real projects start with design, not code. Let's plan our tables.
+Real projects start with design, not code. Let's plan our tables before streaming data.
 
-### The Medallion Architecture
+### Step-by-Step: Create Your Database Schema
 
-We'll organize data into three layers:
+**Step 1: Open Jupyter Notebook**
 
-| Layer | Purpose | Data Quality |
-|-------|---------|--------------|
-| **Bronze** | Raw data exactly as received | Uncleaned, complete history |
-| **Silver** | Cleaned, validated, typed | Business rules applied |
-| **Gold** | Aggregated, analytics-ready | Optimized for queries |
+Go to http://localhost:8888 and open the existing `getting_started.ipynb` notebook (from PART-A).
 
-### Bronze Layer Design
+**Step 2: Create Bronze Database and Table**
 
-**Table:** `bronze.crypto_ticks_raw`
+Run this in a new cell:
 
-Stores every Kafka message as-is. This is your audit trail-never delete or modify Bronze data.
+```python
+# Create Bronze database
+spark.sql("CREATE DATABASE IF NOT EXISTS bronze")
 
-```sql
-CREATE TABLE bronze.crypto_ticks_raw (
-    raw_payload STRING,              -- Complete JSON from Kafka
-    ingestion_timestamp TIMESTAMP,   -- When we wrote to Iceberg
-    kafka_offset BIGINT,             -- Kafka message offset
-    kafka_partition INT              -- Kafka partition number
+# Create table for raw Kafka messages
+spark.sql("""
+CREATE TABLE IF NOT EXISTS bronze.crypto_ticks_raw (
+    raw_payload STRING,
+    ingestion_timestamp TIMESTAMP,
+    kafka_offset BIGINT,
+    kafka_partition INT
 )
-PARTITIONED BY (days(ingestion_timestamp));
+USING iceberg
+PARTITIONED BY (days(ingestion_timestamp))
+""")
+
+spark.sql("SHOW TABLES IN bronze").show()
 ```
 
-**Why this design?**
-- `raw_payload` as STRING preserves everything, even malformed JSON
-- Kafka metadata (`offset`, `partition`) enables exactly-once processing
-- Partitioned by ingestion date for efficient querying and retention management
+**Step 3: Create Silver Database and Table**
 
-📖 **Deep Dive:** See [data-modeling/schema-design.md](data-modeling/schema-design.md) for complete Bronze/Silver/Gold table designs.
+Run this in the next cell:
 
-### Silver Layer Design
+```python
+# Create Silver database
+spark.sql("CREATE DATABASE IF NOT EXISTS silver")
 
-**Table:** `silver.crypto_prices_clean`
-
-Parsed, validated, and typed data ready for analytics.
-
-```sql
-CREATE TABLE silver.crypto_prices_clean (
+# Create table for cleaned/parsed data
+spark.sql("""
+CREATE TABLE IF NOT EXISTS silver.crypto_prices_clean (
     crypto_symbol STRING,
     price_usd DECIMAL(18, 8),
     volume_24h DECIMAL(20, 2),
@@ -243,16 +223,49 @@ CREATE TABLE silver.crypto_prices_clean (
     api_timestamp TIMESTAMP,
     processing_timestamp TIMESTAMP
 )
-PARTITIONED BY (days(api_timestamp));
+USING iceberg
+PARTITIONED BY (days(api_timestamp))
+""")
+
+spark.sql("SHOW TABLES IN silver").show()
 ```
 
-**Transformations applied:**
-- Parse JSON from `raw_payload`
-- Validate: price > 0, timestamp reasonable
-- Deduplicate: keep latest per symbol per minute
+**Step 4: Verify Tables Were Created**
+
+```python
+# Check table schemas
+spark.sql("DESCRIBE bronze.crypto_ticks_raw").show()
+spark.sql("DESCRIBE silver.crypto_prices_clean").show()
+```
+
+**✅ Done!** Your database schema is ready. Now you can proceed to Phase 3 for streaming ingestion.
+
+---
+
+### Understanding the Design
+
+**The Medallion Architecture:**
+
+| Layer | Purpose | Data Quality |
+|-------|---------|--------------|
+| **Bronze** | Raw data exactly as received from Kafka | Uncleaned, complete history |
+| **Silver** | Cleaned, validated, typed | Business rules applied |
+| **Gold** | Aggregated, analytics-ready | Optimized for queries |
+
+**Why This Design?**
+
+**Bronze (`crypto_ticks_raw`):**
+- `raw_payload` as STRING preserves everything, even malformed JSON
+- Kafka metadata (`offset`, `partition`) enables exactly-once processing
+- Partitioned by ingestion date for efficient querying
+
+**Silver (`crypto_prices_clean`):**
+- Parsed JSON → structured columns
+- Validated: price > 0, timestamps reasonable
+- Deduplicated: keep latest per symbol per minute
 - Type conversion: string → decimal/timestamp
 
-📖 **Deep Dive:** See [data-modeling/dimensional-model.md](data-modeling/dimensional-model.md) for the complete star schema with fact and dimension tables.
+📖 **Deep Dive:** See [data-modeling/schema-design.md](data-modeling/schema-design.md) for complete Bronze/Silver/Gold table designs and [data-modeling/dimensional-model.md](data-modeling/dimensional-model.md) for the star schema.
 
 ---
 
