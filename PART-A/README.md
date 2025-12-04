@@ -24,11 +24,12 @@ The recommended approach for a lakehouse catalog using Iceberg is Polaris. Howev
 
 **If you followed the [main README](../README.md), PART-A is already running!**
 
-The main README's Quick Start section covers the complete PART-A setup. You only need this section if you're working directly in PART-A without following the main README.
+
+**Still here?** You probably want to set up PART-A independently or understand what's happening under the hood. Let's walk through it.
 
 ### First Time Setup (Standalone)
 
-If you're setting up PART-A independently:
+Setting up PART-A independently is straightforward. The setup script handles everything automatically:
 
 **macOS / Linux:**
 ```bash
@@ -50,7 +51,9 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 - Waits for health checks
 - Starts Jupyter notebook
 
-**Note:** Notebooks have been moved to [PART-C](../PART-C/README.md) for better project organization. Jupyter will still be accessible at http://localhost:8888 to run project notebooks.
+**When it's done**, you'll see a success message and all services will be ready. Give it 30-60 seconds for health checks to pass.
+
+**Note:** Notebooks have been moved to [PART-C](../PART-C/README.md) for better project organization. This keeps infrastructure (PART-A) separate from actual projects. Jupyter will still be accessible at http://localhost:8888 to run those project notebooks.
 
 ![](images/20251130162734.png)
 
@@ -97,6 +100,8 @@ docker-compose -f spark-notebook.yml up -d
 
 ## Services
 
+Now that everything's running, here's how to access each component. Bookmark these URLs - you'll use them often:
+
 | Service | URL | Purpose |
 |---------|-----|---------|
 | Jupyter | http://localhost:8888 | Write and run Spark SQL |
@@ -111,13 +116,17 @@ docker-compose -f spark-notebook.yml up -d
 
 ## What Persists Across Restarts?
 
-**Everything.** Unlike the Polaris setup, nothing is lost when you restart Docker.
+Here's some great news: **Everything persists.** You won't lose your work.
+
+Unlike some other setups (looking at you, Polaris), nothing is lost when you restart Docker. Your tables, data, schemas - all safe and sound.
 
 Docker volumes store:
 - **postgres_data** - All your databases, tables, schemas, column definitions
 - **minio_data** - Your actual Parquet files and Iceberg metadata
 
-Restart Docker, restart your machine, come back a week later-your data is exactly where you left it. No setup scripts to re-run, no credentials to update, no catalogs to recreate.
+Restart Docker, restart your machine, come back a week later - your data is exactly where you left it. No setup scripts to re-run, no credentials to update, no catalogs to recreate.
+
+**This is how production systems work.** You set them up once and they keep running.
 
 This is how production systems work. You set them up once and they keep running.
 

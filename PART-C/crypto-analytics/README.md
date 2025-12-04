@@ -175,6 +175,157 @@ LIMIT 24;
 
 ---
 
+## Step-by-Step Tutorial
+
+### Phase 1: Streaming Ingestion (Bronze Layer)
+
+Let's write data from Kafka into Iceberg tables.
+
+#### 1. Open Jupyter Notebook
+
+1. Navigate to http://localhost:8888
+2. Create a new notebook: **New** → **Python 3**
+3. Name it `crypto_streaming_bronze.ipynb`
+
+#### 2. Initialize Spark with Iceberg
+
+```python
+from pyspark.sql import SparkSession
+
+spark = SparkSession.builder \
+    .appName("CryptoStreamingBronze") \
+    .config("spark.jars.packages", 
+            "org.apache.iceberg:iceberg-spark-runtime-3.3_2.12:1.4.2,"
+            "org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.2") \
+    .config("spark.sql.catalog.spark_catalog", "org.apache.iceberg.spark.SparkCatalog") \
+    .config("spark.sql.catalog.spark_catalog.type", "hive") \
+    .config("spark.sql.catalog.spark_catalog.uri", "thrift://hive-metastore:9083") \
+    .getOrCreate()
+
+print("Spark session created with Iceberg support")
+```
+
+#### 3. Read from Kafka
+
+```python
+# Read streaming data from Kafka
+kafka_df = spark.readStream \
+    .format("kafka") \
+    .option("kafka.bootstrap.servers", "crypto-kafka:9092") \
+    .option("subscribe", "crypto.prices.raw") \
+    .option("startingOffsets", "latest") \
+    .load()
+
+# Kafka gives us binary data - convert to string
+from pyspark.sql.functions import col, current_timestamp
+
+bronze_df = kafka_df.select(
+    col("value").cast("string").alias("raw_payload"),
+    current_timestamp().alias("ingestion_timestamp"),
+    col("offset").alias("kafka_offset"),
+    col("partition").alias("kafka_partition")
+)
+
+# Show schema
+bronze_df.printSchema()
+```
+
+#### 4. Create Bronze Database and Table
+
+```python
+# Create database if not exists
+spark.sql("CREATE DATABASE IF NOT EXISTS bronze")
+
+# Create Iceberg table
+spark.sql("""
+CREATE TABLE IF NOT EXISTS bronze.crypto_ticks_raw (
+    raw_payload STRING,
+    ingestion_timestamp TIMESTAMP,
+    kafka_offset BIGINT,
+    kafka_partition INT
+)
+USING iceberg
+PARTITIONED BY (days(ingestion_timestamp))
+""")
+
+print("Bronze table created successfully")
+```
+
+#### 5. Write Stream to Iceberg
+
+```python
+# Write stream to Iceberg table
+query = bronze_df.writeStream \
+    .format("iceberg") \
+    .outputMode("append") \
+    .option("path", "bronze.crypto_ticks_raw") \
+    .option("checkpointLocation", "/tmp/checkpoint/bronze_crypto") \
+    .trigger(processingTime="30 seconds") \
+    .start()
+
+print("Streaming query started. Data is being written to Bronze table.")
+print(f"Query ID: {query.id}")
+```
+
+#### 6. Monitor the Stream
+
+```python
+# Check query status
+query.status
+
+# See recent progress
+query.recentProgress
+```
+
+**In another notebook cell**, query the Bronze table:
+
+```python
+# Read from Bronze table
+spark.sql("SELECT COUNT(*) as row_count FROM bronze.crypto_ticks_raw").show()
+
+# See latest records
+spark.sql("""
+SELECT 
+    raw_payload,
+    ingestion_timestamp,
+    kafka_offset
+FROM bronze.crypto_ticks_raw 
+ORDER BY ingestion_timestamp DESC 
+LIMIT 5
+""").show(truncate=False)
+```
+
+**What you should see:**
+- Row count increasing every 30 seconds
+- JSON data in `raw_payload` column
+- Timestamps showing when data was ingested
+
+🎉 **Congratulations!** You've built a real-time streaming pipeline from Kafka to Iceberg.
+
+---
+
+## What's Implemented vs. Planned
+
+### ✅ Currently Available
+
+| Component | Status | What's Ready |
+|-----------|--------|-------------|
+| Infrastructure | ✅ Complete | Kafka, producer, lakehouse all running |
+| Bronze Ingestion | ✅ Tutorial Ready | Step-by-step guide above |
+| Data Modeling | ✅ Documented | Bronze/Silver/Gold schemas defined |
+
+### 🚧 Coming Soon
+
+| Component | Status | Description |
+|-----------|--------|-------------|
+| Silver Layer | 📝 In Progress | Transformation notebooks |
+| Gold Layer | 📝 In Progress | Aggregation examples |
+| dbt Integration | 🔜 Planned | SQL transformations |
+| Airflow DAGs | 🔜 Planned | Pipeline orchestration |
+| Time Travel Examples | 🔜 Planned | Iceberg snapshots |
+
+---
+
 ## Learning Outcomes
 
 After completing this project, you'll understand:
@@ -189,13 +340,27 @@ After completing this project, you'll understand:
 
 ---
 
-## Next Steps
+## Practice Exercises
 
-1. Complete the `getting_started.ipynb` notebook
-2. Review the data model documentation
-3. Explore the Bronze/Silver/Gold layers
-4. Add custom transformations
-5. Create your own analytics queries
+### Beginner Level
+1. **Explore Bronze Data:** Run the tutorial and let data accumulate for 10-15 minutes
+2. **Query Patterns:** 
+   - Count records per partition
+   - Filter by time ranges
+   - Parse JSON and extract specific cryptocurrencies
+
+### Intermediate Level
+3. **Study Schema Designs:** Read the [data-modeling docs](data-modeling/)
+4. **Design Transformations:** Plan how to build the Silver layer
+   - How would you parse the JSON?
+   - What validations would you add?
+   - How would you handle duplicates?
+
+### Advanced Level
+5. **Optimize Performance:** 
+   - Experiment with different partition strategies
+   - Test various checkpoint intervals
+   - Monitor Spark UI for bottlenecks
 
 ---
 

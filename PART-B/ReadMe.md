@@ -2,7 +2,9 @@
 
 **← [Back to Main Repository](../README.md) | ⚠️ Prerequisites: [Complete PART-A first](../PART-A/README.md)**
 
-This is the **streaming layer** of the lakehouse. It provides Kafka infrastructure for real-time data ingestion, along with a crypto price producer as a demonstration of streaming data pipelines.
+Welcome to the streaming layer! This is where things get exciting - we're adding real-time data ingestion capabilities to your lakehouse.
+
+PART-B provides Kafka infrastructure for message streaming, along with a working crypto price producer that demonstrates how to build real-time data pipelines. Think of this as your data highway - constantly moving fresh data into your lakehouse.
 
 ## What You'll Get
 
@@ -25,14 +27,14 @@ Streaming infrastructure including:
 
 ## Quick Start
 
-** If you followed the [main README](../README.md), everything is already running!**
+**Good news!** If you followed the [main README](../README.md), everything is already running!
 
 The main README Quick Start guide already:
--  Started PART-A (MinIO, Hive, Spark)
--  Started PART-B (Kafka, Producer)
--  Configured all services
+-  Started PART-A (MinIO, Hive, Spark) ✅
+-  Started PART-B (Kafka, Producer) ✅
+-  Configured all services ✅
 
-**Skip to [Verify Everything is Running](#verify-everything-is-running) below.**
+**You're all set!** Skip to [Verify Everything is Running](#verify-everything-is-running) below to confirm it's working.
 
 ---
 
@@ -59,26 +61,32 @@ Both containers must be running. If not, go to [PART-A README](../PART-A/README.
 
 ## Verify Everything is Running
 
-Check all containers are healthy:
+Let's make sure all the streaming components are up and healthy. This quick check confirms Kafka and the producer are working:
 
 ```bash
 docker ps | grep crypto
 ```
 
-You should see:
-- `crypto-zookeeper` - Running
-- `crypto-kafka` - Running (healthy)
-- `crypto-kafka-ui` - Running
-- `crypto-producer` - Running
+**You should see these four containers running:**
+- `crypto-zookeeper` - Running (Kafka's coordinator)
+- `crypto-kafka` - Running (healthy) - The message broker
+- `crypto-kafka-ui` - Running - Web interface for monitoring
+- `crypto-producer` - Running - Fetching and streaming crypto prices
 
-### Step 4: Access Services
+**All running?** Perfect! Let's see the data.
+
+### Access Your Services
+
+Now for the fun part - let's see your streaming data in action!
 
 | Service | URL | What You'll See |
-|---------|-----|-----------------|
+|---------|-----|---------------|
 | Kafka UI | http://localhost:8080 | Topics, messages, consumer groups |
 | Jupyter Notebook | http://localhost:8888 | From PART-A (for Spark queries) |
 
-Open Kafka UI and look for the topic `crypto.prices.raw`. You should see messages flowing in every 30 seconds.
+**Try this:** Open Kafka UI at http://localhost:8080 and navigate to the topic `crypto.prices.raw`. You should see messages flowing in every 30 seconds - that's live cryptocurrency price data streaming into your lakehouse!
+
+**Pretty cool, right?** This is real-time data engineering in action.
 
 ---
 
@@ -154,288 +162,71 @@ The crypto producer sends JSON messages in this format:
 ---
 
 ## Managing PART-B
-    kafka_partition INT
-)
-USING iceberg
-PARTITIONED BY (days(ingestion_timestamp))
-""")
 
-spark.sql("SHOW TABLES IN bronze").show()
-```
+Need to manage your streaming infrastructure? Here are the essential commands:
 
-> **Note:** In Hive/Spark, `DATABASE` and `SCHEMA` are interchangeable terms - both create a namespace to organize tables. The commands `CREATE DATABASE bronze` and `CREATE SCHEMA bronze` do exactly the same thing.
+### Daily Operations
 
-**Step 3: Create Silver Database and Table**
-
-Run this in the next cell:
-
-```python
-# Create Silver database
-spark.sql("CREATE DATABASE IF NOT EXISTS silver")
-
-# Create table for cleaned/parsed data
-spark.sql("""
-CREATE TABLE IF NOT EXISTS silver.crypto_prices_clean (
-    crypto_symbol STRING,
-    price_usd DECIMAL(18, 8),
-    volume_24h DECIMAL(20, 2),
-    percent_change_24h DECIMAL(10, 4),
-    api_timestamp TIMESTAMP,
-    processing_timestamp TIMESTAMP
-)
-USING iceberg
-PARTITIONED BY (days(api_timestamp))
-""")
-
-spark.sql("SHOW TABLES IN silver").show()
-```
-
-**Step 4: Verify Tables Were Created**
-
-```python
-# Check table schemas
-spark.sql("DESCRIBE bronze.crypto_ticks_raw").show()
-spark.sql("DESCRIBE silver.crypto_prices_clean").show()
-```
-
-** Done!** Your database schema is ready. Now you can proceed to Phase 3 for streaming ingestion.
-
----
-
-### Understanding the Design
-
-**The Medallion Architecture:**
-
-| Layer | Purpose | Data Quality |
-|-------|---------|--------------|
-| **Bronze** | Raw data exactly as received from Kafka | Uncleaned, complete history |
-| **Silver** | Cleaned, validated, typed | Business rules applied |
-| **Gold** | Aggregated, analytics-ready | Optimized for queries |
-
-**Why This Design?**
-
-**Bronze (`crypto_ticks_raw`):**
-- `raw_payload` as STRING preserves everything, even malformed JSON
-- Kafka metadata (`offset`, `partition`) enables exactly-once processing
-- Partitioned by ingestion date for efficient querying
-
-**Silver (`crypto_prices_clean`):**
-- Parsed JSON → structured columns
-- Validated: price > 0, timestamps reasonable
-- Deduplicated: keep latest per symbol per minute
-- Type conversion: string → decimal/timestamp
-
-📖 **Deep Dive:** See [data-modeling/schema-design.md](data-modeling/schema-design.md) for complete Bronze/Silver/Gold table designs and [data-modeling/dimensional-model.md](data-modeling/dimensional-model.md) for the star schema.
-
----
-
-## Tutorial: Phase 3 - Streaming Ingestion (Bronze Layer)
-
-Now let's write data from Kafka into Iceberg tables.
-
-### Open Jupyter Notebook
-
-1. Navigate to http://localhost:8888
-2. Create a new notebook: **New** → **Python 3**
-3. Name it `crypto_streaming_bronze.ipynb`
-
-### Initialize Spark with Iceberg
-
-```python
-from pyspark.sql import SparkSession
-
-spark = SparkSession.builder \
-    .appName("CryptoStreamingBronze") \
-    .config("spark.jars.packages", 
-            "org.apache.iceberg:iceberg-spark-runtime-3.3_2.12:1.4.2,"
-            "org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.2") \
-    .config("spark.sql.catalog.spark_catalog", "org.apache.iceberg.spark.SparkCatalog") \
-    .config("spark.sql.catalog.spark_catalog.type", "hive") \
-    .config("spark.sql.catalog.spark_catalog.uri", "thrift://hive-metastore:9083") \
-    .getOrCreate()
-
-print("Spark session created with Iceberg support")
-```
-
-### Read from Kafka
-
-```python
-# Read streaming data from Kafka
-kafka_df = spark.readStream \
-    .format("kafka") \
-    .option("kafka.bootstrap.servers", "kafka:29092") \
-    .option("subscribe", "crypto.prices.raw") \
-    .option("startingOffsets", "latest") \
-    .load()
-
-# Kafka gives us binary data - convert to string
-from pyspark.sql.functions import col, current_timestamp
-
-bronze_df = kafka_df.select(
-    col("value").cast("string").alias("raw_payload"),
-    current_timestamp().alias("ingestion_timestamp"),
-    col("offset").alias("kafka_offset"),
-    col("partition").alias("kafka_partition")
-)
-
-# Show schema
-bronze_df.printSchema()
-```
-
-### Create Bronze Database and Table
-
-```python
-# Create database if not exists
-spark.sql("CREATE DATABASE IF NOT EXISTS bronze")
-
-# Create Iceberg table
-spark.sql("""
-CREATE TABLE IF NOT EXISTS bronze.crypto_ticks_raw (
-    raw_payload STRING,
-    ingestion_timestamp TIMESTAMP,
-    kafka_offset BIGINT,
-    kafka_partition INT
-)
-USING iceberg
-PARTITIONED BY (days(ingestion_timestamp))
-""")
-
-print("Bronze table created successfully")
-```
-
-### Write Stream to Iceberg
-
-```python
-# Write stream to Iceberg table
-query = bronze_df.writeStream \
-    .format("iceberg") \
-    .outputMode("append") \
-    .option("path", "bronze.crypto_ticks_raw") \
-    .option("checkpointLocation", "/tmp/checkpoint/bronze_crypto") \
-    .trigger(processingTime="30 seconds") \
-    .start()
-
-print("Streaming query started. Data is being written to Bronze table.")
-print(f"Query ID: {query.id}")
-```
-
-### Monitor the Stream
-
-```python
-# Check query status
-query.status
-
-# See recent progress
-query.recentProgress
-```
-
-**In another notebook cell**, query the Bronze table:
-
-```python
-# Read from Bronze table
-spark.sql("SELECT COUNT(*) as row_count FROM bronze.crypto_ticks_raw").show()
-
-# See latest records
-spark.sql("""
-SELECT 
-    raw_payload,
-    ingestion_timestamp,
-    kafka_offset
-FROM bronze.crypto_ticks_raw 
-ORDER BY ingestion_timestamp DESC 
-LIMIT 5
-""").show(truncate=False)
-```
-
-**What you should see:**
-- Row count increasing every 30 seconds
-- JSON data in `raw_payload` column
-- Timestamps showing when data was ingested
-
-🎉 **Congratulations!** You've built a real-time streaming pipeline from Kafka to Iceberg.
-
----
-
-## What's Working vs. What's Planned
-
-###  Currently Implemented
-
-| Component | Status | What Works |
-|-----------|--------|------------|
-| Kafka Stack |  Complete | Zookeeper, Kafka, Kafka UI running |
-| Crypto Producer |  Complete | Fetches live prices every 30s from CoinGecko |
-| Data Modeling Docs |  Complete | Bronze/Silver/Gold schemas documented |
-| Bronze Ingestion |  Tutorial Ready | Step-by-step guide above |
-
-### 🚧 Planned for Future Updates
-
-| Component | Status | What's Needed |
-|-----------|--------|---------------|
-| Silver Layer | 📝 Documented | Need transformation notebook/script |
-| Gold Layer | 📝 Documented | Need dbt project setup |
-| Airflow Orchestration | 🔜 Planned | DAG for end-to-end pipeline |
-| Time Travel Queries | 🔜 Planned | Examples using Iceberg snapshots |
-| Performance Tuning | 🔜 Planned | Compaction, Z-ordering examples |
-
----
-
-## Next Steps
-
-### Continue Learning
-
-1. **Practice Bronze Ingestion:** Run the tutorial above and let data accumulate for 10-15 minutes
-2. **Explore the Data:** 
-   - Query Bronze tables with different time ranges
-   - Count records per partition
-   - Parse JSON and extract specific coins
-3. **Study the Schema Designs:**
-   - Read [data-modeling/schema-design.md](data-modeling/schema-design.md)
-   - Understand why each table is partitioned differently
-   - Review the data quality rules for Silver layer
-4. **Design Silver Transformations:**
-   - How would you parse the JSON?
-   - What validations would you add?
-   - How would you handle duplicate records?
-
-### Stop the Services
-
-When you're done experimenting:
-
+**Start PART-B:**
 ```bash
-# Stop PART-B (preserves data)
-docker-compose down
-
-# Stop PART-A
-cd ../PART-A
-./stop.sh    # Mac/Linux
-./stop.ps1   # Windows
+cd PART-B
+docker-compose up -d
 ```
 
-All data is preserved in Docker volumes. Restart anytime with `./start.sh` (PART-A) and `docker-compose up -d` (PART-B).
+**Stop PART-B (preserves data):**
+```bash
+cd PART-B
+docker-compose down
+```
+
+**Check status:**
+```bash
+docker ps | grep crypto
+```
+
+### Viewing Logs
+
+**All services:**
+```bash
+cd PART-B
+docker-compose logs -f
+```
+
+**Specific service:**
+```bash
+docker logs -f crypto-producer  # See API calls and data fetching
+docker logs -f crypto-kafka      # Kafka broker logs
+docker logs -f crypto-kafka-ui   # UI service logs
+```
+
+### Restarting Services
+
+**Restart all PART-B services:**
+```bash
+cd PART-B
+docker-compose restart
+```
+
+**Restart specific service:**
+```bash
+docker-compose restart crypto-producer
+docker-compose restart crypto-kafka
+```
 
 ### After Machine Restart
 
-Both PART-A and PART-B containers are configured with `restart: unless-stopped`. After rebooting:
+All PART-B containers are configured with `restart: unless-stopped`. They'll automatically restart when Docker starts. Just give it 30-60 seconds for Kafka to become healthy.
 
-1. **Docker Desktop starts** (if configured in settings)
-2. **All containers restart automatically** in the correct order
-3. **Wait 30-60 seconds** for Kafka to become healthy
-4. **Check status:**
-   ```bash
-   docker ps | grep crypto
-   ```
-
-If any service fails to start:
+**Verify everything restarted:**
 ```bash
-# Restart PART-B services
-cd PART-B
-docker-compose down
-docker-compose up -d
+docker ps | grep crypto
 ```
 
 ---
 
 ## Troubleshooting
+
+Running into issues? Here are common problems and solutions:
 
 | Issue | Solution |
 |-------|----------|
@@ -443,7 +234,7 @@ docker-compose up -d
 | Crypto producer not sending data | Check logs: `docker logs crypto-producer` |
 | Kafka UI shows no messages | Wait 30 seconds for first API call, refresh page |
 | Spark can't connect to Kafka | Ensure Kafka is healthy: `docker ps \| grep kafka` |
-| "Table already exists" error | Normal - Iceberg tables persist across restarts |
+| Port conflicts (8080, 9092) | Stop other services using these ports |
 
 ### View Logs
 

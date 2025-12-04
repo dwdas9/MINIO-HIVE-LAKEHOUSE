@@ -49,38 +49,57 @@ I have split the repo into three main parts. **Start with PART-A first**, then P
 
 ### 2. Access Core Services
 
+Great! If setup completed successfully, your lakehouse is now running. Let's verify everything works by accessing the services:
+
 | Service            | URL                    | Credentials                |
 |--------------------|------------------------|----------------------------|
 | Jupyter Notebook   | http://localhost:8888  | No password                |
 | MinIO Console      | http://localhost:9001  | minioadmin / minioadmin    |
 | Spark UI           | http://localhost:4040  | (Active during queries)    |
 
+**Try it now:** Open Jupyter at http://localhost:8888. You'll see the familiar Jupyter interface ready to run Spark SQL queries. The MinIO console at http://localhost:9001 lets you browse your data lake like an S3 bucket.
+
 ### 3. Run Streaming Analytics (Optional)
 
-Once PART-A is running, you can add real-time crypto price streaming:
+Now that your lakehouse is running, let's add real-time streaming capabilities! PART-B sets up Kafka infrastructure and starts streaming live cryptocurrency prices into your lakehouse.
+
+**This step is optional** - you can skip it if you just want to explore the core lakehouse features. But if you're interested in real-time data pipelines, this is where the magic happens.
 
 | OS         | Command(s)                                                                                 |
-|------------|--------------------------------------------------------------------------------------------|
+|------------|-------------------------------------------------------------------------------------------|
 | Mac/Linux  | `cd PART-B`<br>`chmod +x setup.sh`<br>`./setup.sh`                                         |
 | Windows    | `cd PART-B`<br>`Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`<br>`./setup.ps1`|
 
+**What happens:** This sets up Kafka, starts a producer that fetches crypto prices every 30 seconds, and makes the data available for streaming into your lakehouse.
+
 ### 4. Work on Data Projects (PART-C)
 
-Once both PART-A and PART-B are running, explore the **crypto analytics project**:
+Excellent! With both infrastructure layers running (lakehouse + streaming), you're ready to build real data engineering projects.
+
+PART-C contains hands-on projects that use your infrastructure. Start with the **crypto analytics project** - it's a complete, production-style pipeline that shows you how to:
+- Ingest streaming data from Kafka
+- Build Bronze/Silver/Gold layers
+- Apply dimensional modeling
+- Create analytics-ready datasets
 
 📖 **[Go to PART-C: Projects →](PART-C/README.md)**
 
-**Quick access to Jupyter:**
+**To get started quickly:**
 ```bash
-# Open: http://localhost:8888
-# Navigate to: work/getting_started.ipynb (moved to PART-C)
+# Open Jupyter: http://localhost:8888
+# You'll find notebooks in the work/ directory
+# Start with getting_started.ipynb in the crypto-analytics folder
 ```
+
+**Tip:** Even if you skipped PART-B, you can still explore the notebooks and learn the concepts. The streaming examples just won't have live data.
 
 ---
 
-### 5. List of all scripts
+### 5. Daily Usage - Managing Your Lakehouse
 
-After initial setup, these are the common commands you'll use to manage your lakehouse:
+After the initial setup, you'll want to start and stop your lakehouse as needed. Here are the commands you'll use regularly:
+
+**Good news:** You only need to run setup once. After that, use these simpler commands:
 
 | Step                | Mac/Linux Command(s)           | Windows Command(s)           |
 |---------------------|-------------------------------|------------------------------|
@@ -90,9 +109,11 @@ After initial setup, these are the common commands you'll use to manage your lak
 | Stop PART-B         | `cd PART-B`<br>`docker-compose down`  | `cd PART-B`<br>`docker-compose down`  |
 
 
-### 6. Complete Reset (Use with Caution)
+### 6. Starting Over (Nuclear Option)
 
-**`nuke.sh` / `nuke.ps1`** - Deletes everything and starts fresh:
+Sometimes you just want to wipe everything clean and start fresh. Maybe you experimented too much, or things got messy, or you just want that "new project" feeling.
+
+**The `nuke` scripts** completely destroy everything and give you a blank slate:
 - ⚠️ Stops and removes all containers
 - ⚠️ Deletes all Docker volumes (postgres_data, minio_data)
 - ⚠️ **Permanently deletes** all your tables, data, and Iceberg metadata
@@ -108,6 +129,7 @@ After nuking, run `./setup.sh` or `./setup.ps1` to recreate everything from scra
 
 ## Architecture
 
+Let me walk you through how everything connects. Understanding this architecture will help you troubleshoot issues and build better pipelines.
 
 ### How Data Flows
 
@@ -139,9 +161,9 @@ After nuking, run `./setup.sh` or `./setup.ps1` to recreate everything from scra
 | **Producer** | Data ingester | Nothing (fetches and forwards) |
 | **Kafka UI** | Monitoring tool | Nothing (reads from Kafka) |
 
-## What Persists?
+## What Persists Across Restarts?
 
-Your work is safe across restarts. Docker volumes preserve everything:
+You might be wondering: "If I stop Docker, do I lose everything?" **Nope!** Your work is completely safe. Docker volumes preserve everything:
 
 | Volume         | Description                       |
 |---------------|-----------------------------------|
@@ -192,6 +214,8 @@ cd PART-A
 | Disk Space         | 10GB+ free                     |
 
 ## Troubleshooting
+
+Running into issues? Don't worry - here are the most common problems and how to fix them:
 
 | Issue                        | Solution/Check |
 |------------------------------|----------------|
